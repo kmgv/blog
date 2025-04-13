@@ -20,6 +20,7 @@
   color utility to any element that depends on these defaults.
 */
 @layer base {
+
   *,
   ::after,
   ::before,
@@ -79,6 +80,7 @@
     @apply decoration-black/30 dark:decoration-white/30;
     @apply transition-colors duration-300 ease-in-out;
   }
+
   article a:hover {
     @apply text-black dark:text-white;
     @apply decoration-black/50 dark:decoration-white/50;
@@ -119,6 +121,7 @@ pre {
   --astro-code-token-string-expression: #ae42a0;
   --astro-code-token-punctuation: #8996a3;
   --astro-code-token-link: #8d85ff;
+  --breakpoint-sm: 50rem;
 }
 
 .dark {

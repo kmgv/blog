@@ -1,0 +1,756 @@
+---
+title: "SQLAlchemy sessions in FastAPI"
+description: "You’re probably using them wrong. Maybe. Probably. How would I know?"
+date: "2025-04-13"
+---
+
+import Callout from "@/components/Callout.astro";
+
+---
+## You’re probably using them wrong. Maybe. Probably.
+
+In this article, I want to talk about a common problem with SQLAlchemy sessions in FastAPI. We'll discuss why you shouldn't commit a session multiple times, what can go wrong, and how to handle it better.
+
+The examples are based on the current SQLAlchemy 2.0 docs, but most of the concepts apply to older versions as well. It also doesn't matter whether you're using synchronous or asynchronous SQLAlchemy.
+
+And this issue isn’t even limited to Python or SQLAlchemy.
+
+Take a seat and enjoy the ride.
+
+
+## What Is a SQL Session Anyway?
+
+You’re probably familiar with sessions in SQLAlchemy:
+
+```python
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session
+
+engine = create_engine("sqlite://", echo=True)
+with Session(engine) as session:
+  ...
+```
+
+But if you start Googling for "Postgres session" or "MySQL session," you’ll quickly find that there’s no such concept in database terminology. You’ll come across *transactions* and *connections*, but not sessions.
+
+<Callout type="warning">
+  SQLAlchemy Session is one or more database transactions.
+</Callout>
+
+"Session" and "transaction" are often used interchangeably in SQLAlchemy, though technically they’re different things. Most of the time, a session acts like a transaction.
+
+## What is a transaction, then?
+Let’s keep this short. This post isn’t a deep dive into ACID compliance or database theory. Here’s a simplified explanation:
+
+```sql
+BEGIN; -- transaction starts with BEGIN
+-- all the queries you run are part of the transaction
+SELECT * FROM users WHERE id = 1;
+
+INSERT INTO orders (customer_id, order_date)
+VAULES (1, NOW()) RETURNING id;
+
+INSERT INTO order_items (order_id, product_id, quantity)
+VALUES (1, 101, 2);
+
+-- imagine calling an external service here
+-- ROLLBACK transaction if something goes wrong.
+
+UPDATE inventory SET stock = stock - 2 WHERE product_id = 101;
+
+COMMIT; -- transaction ends with COMMIT or ROLLBACK
+```
+
+So a SQL transaction is a set of queries whose results are saved or discarded (`COMMIT` or `ROLLBACK`) together.
+
+Imagine something went wrong between adding the order and updating the inventory in the example above. Without a database-level transaction, you'd end up with a corrupted state in your database. You might have orders without corresponding inventory updates, or you'd have to manually revert changes.
+
+Manual changes tracking will always fail. Other database operations, such as triggers and materialized views, might have occurred in effect of your original query.
+
+One key takeaway: once a transaction is committed, the data is saved. If anything fails during the transaction, the whole thing is rolled back.
+
+## SQLalchemy sessions
+Let's take a look on how SQLAlchemy creates transactions. For the next few examples, consider this setup:
+
+```python
+from typing import Optional
+
+from sqlalchemy import String, create_engine
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+
+class Base(DeclarativeBase):
+    pass
+
+
+class User(Base):
+    __tablename__ = "user_account"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(30))
+    fullname: Mapped[Optional[str]]
+
+
+sqlite_file_name = "database.db"
+sqlite_url = f"sqlite:///{sqlite_file_name}"
+
+connect_args = {"check_same_thread": False}
+engine = create_engine(sqlite_url, connect_args=connect_args, echo=True)
+```
+
+Now let's run some more SQLAlchemy code and let's look at the logs. Notice that we used `echo=True` to see all the queries that are executed.
+
+<Callout type="info">
+  All timestamps, log level and logger name were removed from logs for clarity
+</Callout>
+
+### Create tables
+
+Code:
+```python
+Base.metadata.create_all(engine)
+```
+
+Logs:
+```
+BEGIN (implicit)
+PRAGMA main.table_info("user_account")
+[raw sql] ()
+PRAGMA temp.table_info("user_account")
+[raw sql] ()
+sqlalchemy.engine.Engine
+CREATE TABLE user_account (
+        id INTEGER NOT NULL,
+        name VARCHAR(30) NOT NULL,
+        fullname VARCHAR,
+        PRIMARY KEY (id)
+)
+
+[no key 0.00007s] ()
+COMMIT
+```
+
+As you can see in logs sqlalchemy starts a new transaction. Then it checks if table exists and creates it. Finally it commits the transaction.
+
+<Callout type="info">
+  SQLAlchemy wraps all the queries in transaction. Even if not asked.
+</Callout>
+
+### Session context manager
+
+Next, let’s explore creating and using sessions. This isn’t a full SQLAlchemy tutorial, so we’ll focus on how it interacts with the DB.
+
+First let's introduce SQLAlchemy's `sessionmaker` so we don't need to pass engine every time explicitly. Also we'll touch on one more feature of sessionmaker shortly.
+
+```python
+
+Code:
+```python
+from sqlalchemy.orm import sessionmaker
+
+Session = sessionmaker(engine)
+
+with Session() as session:
+    user = User(name="ed", fullname="Ed Jones")
+    session.add(user)
+    # notice we don't commit session here, that is intentional
+```
+
+Logs:
+```
+<empty log>
+```
+
+Huh, nothing happened. We created a session and added a user to it, yet nothing executed. Why? Because the session object is an abstraction—it merely holds objects mapped to database rows.
+
+In this case, we just created object in python land, added to the session. SQLAlchemy is lazy and won't even start a transaction until it is necessary.
+
+<Callout type="info">
+  Call `session.flush()` to send "pending" queries to the database.
+</Callout>
+
+Calling `session.commit()` will flush session as well, but let's not get ahead of ourselves.
+
+Code:
+```python
+with Session() as session:
+    user = User(name="ed", fullname="Ed Jones")
+    session.add(user)
+    session.flush()
+```
+
+Logs:
+```
+BEGIN (implicit)
+INSERT INTO user_account (name, fullname) VALUES (?, ?)
+[generated in 0.00012s] ('ed', 'Ed Jones')
+ROLLBACK
+```
+
+We are getting somewhere. We asked to flush the session and it started a transaction, executed the query to insert user into database, and then rolled back the transaction.
+
+<Callout type="info">
+  Session() context manager will rollback transaction if not committed
+</Callout>
+
+### What is sessionmaker?
+`sessionmaker` is just a factory for creating sessions. Maybe is it best to show that with code.
+
+```python
+from sqlalchemy.orm import Session
+
+def sessionmaker(*args, **kwargs):
+    def session():
+        return Session(*args, **kwargs)
+    return session
+```
+
+This of a simplification, of course but it makes the point. This is mostly what you would use `sessionmaker` for.
+
+But there is one (among many others) interesting feature that is provides.
+
+```python
+Session = sessionmaker(engine)
+
+with Session.begin() as session:
+    user = User(name="ed", fullname="Ed Jones")
+    session.add(user)
+```
+
+```
+BEGIN (implicit)
+INSERT INTO user_account (name, fullname) VALUES (?, ?)
+[generated in 0.00012s] ('ed', 'Ed Jones')
+COMMIT
+```
+
+`Session.begin()` works differently then `Session()`. It commits transaction at the exit of the context manager.
+
+<Callout type="info">
+  sessionmaker provides `begin()` that automatically commits transaction
+</Callout>
+
+I encourage you to read [SQLAlchemy documentation](https://docs.sqlalchemy.org/en/20/orm/session_basics.html#sessionmaker) for more details.
+
+
+### Rollbacks
+Rollbacks are essential. If anything goes wrong during a transaction, we usually want to undo all changes made so far (unless intended otherwise).
+
+As mentioned before, this is a database level feature and we can rollback transaction at any time and database will do cleanup for us.
+
+We can think of two types of scenarios when we want to rollback:
+
+There is a database level error. For example, if we try to insert a user with the same email as existing one and it violates unique constraint. Depending on database, it will invalidate your transaction and won't let you do anything until you rollback it or let it be (sqlite, I'm looking at you).
+
+The second scenario involves an error in our application code. This might be an unhandled exception or a case where we detect an issue and choose not to commit. We don't want to leave database in inconsistent state.
+
+There is a really common pattern to handle rollbacks in case of error. Keep in mind that SQLAlchemy also raises exceptions for database level errors like unique violations.
+
+```python
+session = Session()
+try:
+    user = User(name="ed", fullname="Ed Jones")
+    session.add(user)
+    session.commit()
+except Exception as e:
+    session.rollback()
+    raise
+finally:
+    session.close()
+```
+
+And since it is cumbersome to write it every time it can be used as context manager.
+
+```python
+from contextlib import contextmanager
+
+@contextmanager
+def db_session():
+    session = Session()
+    try:
+        yield session
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+```
+
+Now we have somewhat safer way to get session so we don't have to remember about all those commits and rollbacks. Let's give it a try.
+
+```python
+with db_session() as session:
+    user = User(name="ed", fullname="Ed Jones")
+    session.add(user)
+```
+
+```
+BEGIN (implicit)
+INSERT INTO user_account (name, fullname) VALUES (?, ?)
+[generated in 0.00015s] ('ed', 'Ed Jones')
+COMMIT
+```
+
+It commits when nothing went wrong!
+
+Now try an example where we have an error in the code. Let's simulate it with `ValueError`. First we try to create Bob, then crash. After that we check if Bob got into DB or not.
+
+```python
+def add_bob():
+    with db_session() as session:
+        user = User(name="Bob", fullname="Robert Smith")
+        session.add(user)
+        session.flush()
+        raise ValueError("Oh no!")
+
+try:
+    add_bob()
+except Exception:
+    pass  # everything is fine
+
+with db_session() as session:
+    bob = session.query(User).filter_by(name="Bob").first()
+    if not bob:
+        print("Bob got rolled back")
+```
+
+```
+BEGIN (implicit)
+INSERT INTO user_account (name, fullname) VALUES (?, ?)
+[generated in 0.00013s] ('Bob', 'Robert Smith')
+ROLLBACK
+BEGIN (implicit)
+SELECT user_account.id AS user_account_id, user_account.name AS user_account_name, user_account.fullname AS user_account_fullname
+FROM user_account
+WHERE user_account.name = ?
+ LIMIT ? OFFSET ?
+[generated in 0.00011s] ('Bob', 1, 0)
+Bob got rolled back
+COMMIT
+```
+
+Look at the logs. There are 2 transactions. In first we add Bob, this transaction is rolled back. Then we start a new transaction to check if Bob exists in database.We already knew Bob wouldn’t be in the database since last transaction was rolled back but now we're sure.
+
+
+### Explicit commits
+Only at this point I feel like a can start talking about the problem I wanted to address in this post. Up to this point we tried to separate transaction management from out code, and did it using context manager that commits/rollbacks for us. What happens if session is committed more then once?
+
+```python
+with db_session() as session:
+    bob = User(name="Bob", fullname="Robert Smith")
+    session.add(bob)
+    session.commit()
+
+    ed = User(name="ed", fullname="Ed Jones")
+    session.add(ed)
+    session.commit()
+```
+```
+BEGIN (implicit)
+INSERT INTO user_account (name, fullname) VALUES (?, ?)
+[generated in 0.00012s] ('Bob', 'Robert Smith')
+COMMIT
+BEGIN (implicit)
+INSERT INTO user_account (name, fullname) VALUES (?, ?)
+[cached since 0.006101s ago] ('ed', 'Ed Jones')
+COMMIT
+```
+
+It just worked. SQLAlchemy started second transaction, added second user and committed it.
+
+<Callout type="info">
+  If the session is committed, SQLAlchemy starts a new transaction.
+</Callout>
+
+This might be a problem though. Imagine something went terribly wrong before we added Ed. And we don't want to leave Bob alone there.
+
+```python
+def add_two_gentlemen():
+    with db_session() as session:
+        bob = User(name="Bob", fullname="Robert Smith")
+        session.add(bob)
+        session.commit()
+
+        raise RuntimeError("Someone pulled a plug from server")
+
+        ed = User(name="Ed", fullname="Ed Jones")
+        session.add(ed)
+        session.commit()
+
+try:
+    add_two_gentlemen()
+except Exception:
+    print("Oh my, I hope they're alright")
+
+with db_session() as session:
+    users = session.query(User).all()
+    print("Users currently in database:")
+    for user in users:
+        print("\t" + user.fullname)
+```
+```
+BEGIN (implicit)
+INSERT INTO user_account (name, fullname) VALUES (?, ?)
+[generated in 0.00011s] ('Bob', 'Robert Smith')
+COMMIT
+Oh my, I hope they're alright
+BEGIN (implicit)
+SELECT user_account.id AS user_account_id, user_account.name AS user_account_name, user_account.fullname AS user_account_fullname
+FROM user_account
+[generated in 0.00009s] ()
+Users currently in database:
+        Robert Smith
+COMMIT
+```
+
+This is a disaster! Bob got left alone!
+
+<Callout type="warning">
+  Bob can't be left alone.
+</Callout>
+
+Jokes aside, this is a problem. We got ourselves into false sense of security. We thought we were operating inside a transaction but if fact another was created.
+
+This example might seem trivial. But imagine passing the session object to another function, which commits the transaction without your knowledge. This is very dangerous and it leaves us prone to nasty problem with inconsistent database state. Those are often hard to debug and can lead to even bigger problems.
+
+You have orders already in database but you didn't update your inventory? Oops. You were importing data to CRM system, something went wrong half way and system won't let you try again because half of employees are already in database? Oops.
+
+Almost all these scenarios require manual database intervention. Good luck reverting 10+ tables to proper state. This can be nerve wrecking as it will probably be happen under time pressure. Also, let’s be honest, it is not a fun job.
+
+<Callout type="warning">
+  Don't commit session before it's lifetime is over
+</Callout>
+
+
+### But I need the id!
+Oh yes, you do. You need the ID of the object to create another relation or just to keep it somewhere for later. There is pattern that you probably stumbled upon before.
+
+```python
+with db_session() as session:
+    bob = User(name="Bob", fullname="Robert Smith")
+    session.add(bob)
+    session.commit()
+
+    # sometimes with
+    # session.refresh(bob, attribute_names=["id"])
+
+    print("Bob id is:", bob.id)
+```
+```
+BEGIN (implicit)
+INSERT INTO user_account (name, fullname) VALUES (?, ?)
+[generated in 0.00011s] ('Bob', 'Robert Smith')
+COMMIT
+BEGIN (implicit)
+SELECT user_account.id
+FROM user_account
+WHERE user_account.id = ?
+[generated in 0.00018s] (5,)
+Bob id is: 1
+COMMIT
+```
+
+What happened here? Bob was added, but when we tried to access his `id`, SQLAlchemy pulled object from database automatically. Same would happen with `session.refresh(bob)`. Extra kwargs will just limit queries columns to `id`.
+
+But all you need is to flush the session. It is even better because sqlalchemy is smart enough to get object id without second query!
+
+It is either done by `Cursor.lastrowid` or by using `RETURNING` clause. This is a database specific and query specific feature. Quick example
+
+```python
+with db_session() as session:
+    bob = User(name="Bob", fullname="Robert Smith")
+    session.add(bob)
+    session.flush()
+
+    print("Bob id is:", bob.id)
+```
+```
+BEGIN (implicit)
+INSERT INTO user_account (name, fullname) VALUES (?, ?)
+[generated in 0.00012s] ('Bob', 'Robert Smith')
+Bob id is: 1
+COMMIT
+BEGIN (implicit)
+SELECT user_account.id AS user_account_id, user_account.name AS user_account_name, user_account.fullname AS user_account_fullname
+FROM user_account
+WHERE user_account.name = ?
+ LIMIT ? OFFSET ?
+[generated in 0.00012s] ('Bob', 1, 0)
+Bob id is: 1
+COMMIT
+```
+
+As you can see, there is no second query and you have id available.
+
+<Callout type="info">
+  Use `session.flush()` to get id of object.
+</Callout>
+
+
+`RETURNING` is a good tool to have in your arsenal.
+More docs:
+* [Cursor.lastrowid](https://peps.python.org/pep-0249/#lastrowid)
+* [Sqlite RETURNING](https://sqlite.org/lang_returning.html)
+* [Postgres RETURNING](https://www.postgresql.org/docs/current/dml-returning.html)
+
+### Things to remember
+* SQLAlchemy session is a transaction wrapper
+* SQLAlchemy session will create next transaction implicitly
+* Don't commit session in middle of your code unless you want to persist all changes done before this point
+* Be very cautious when using `commit()`, one day someone may call your function and get surprised
+* Try to `commit()` in just one place. Just `flush()` everywhere else.
+* If you see `commit()` in code review it should be a red flag. Proceed with caution. (Doesn't apply to tests)
+
+## FastAPI and SQLAlchemy
+Let's take a look at an example from FastAPI [documentation](https://fastapi.tiangolo.com/tutorial/sql-databases/).
+
+I don't want to copy paste FastAPI's doc here so let's just look at interesting parts.
+
+```python
+def get_session():
+    with Session(engine) as session:
+        yield session
+
+
+SessionDep = Annotated[Session, Depends(get_session)]
+
+@app.post("/heroes/")
+def create_hero(hero: Hero, session: SessionDep) -> Hero:
+    session.add(hero)
+    session.commit()
+    session.refresh(hero)
+    return hero
+```
+
+There it is. Same pattern as before. In this particular example, you can argue that sessions doesn't outlives transaction but it principle it is there - `get_session` context manager resolves after transaction is committed. It will cause a problem with more complex logic. It sets a bad example.
+
+You think I might be overreacting because this is just an example that is meant to fit on the screen. And this is right. But what is problematic that is doesn't even mention the problem. Also it is not just the docs...
+
+### full-stack-fastapi-template
+Ever stumbled upon the [fastapi/full-stack-fastapi-template](https://github.com/fastapi/full-stack-fastapi-template) repo? I did really early in when I started using FastAPI. Right now it sits over 30k stars. Also it is in `fastapi` org on Github. So it is a big deal.
+
+I had nothing but good things to say about it. I'm a person who would rather have template and do incremental changes over the time if something is rough around the edges then get drowned in an eternal battle between developers over which approach is better. It was a godsend for me.
+
+Look at the `/backend/app/crud.py` file.
+```python
+def create_user(*, session: Session, user_create: UserCreate) -> User:
+    db_obj = User.model_validate(
+        user_create, update={"hashed_password": get_password_hash(user_create.password)}
+    )
+    session.add(db_obj)
+    session.commit()
+    session.refresh(db_obj)
+    return db_obj
+
+
+def update_user(*, session: Session, db_user: User, user_in: UserUpdate) -> Any:
+    user_data = user_in.model_dump(exclude_unset=True)
+    extra_data = {}
+    if "password" in user_data:
+        password = user_data["password"]
+        hashed_password = get_password_hash(password)
+        extra_data["hashed_password"] = hashed_password
+    db_user.sqlmodel_update(user_data, update=extra_data)
+    session.add(db_user)
+    session.commit()
+    session.refresh(db_user)
+    return db_user
+```
+[source](https://github.com/fastapi/full-stack-fastapi-template/blob/d1df85e8098d72c0a43ff0da6dda8bb6662b3a44/backend/app/crud.py)
+
+Yep, it is there. And this is even worse, because it encourages you to bundle methods that are used for CRUD operations together and use `commit`. This is completely  invisible to the caller above. So I, calling some function may commit session and not even know about it.
+
+Also it doesn't give you any hint how to expand and tackle this problem.
+
+Ok, I like this whole CRUD thing. Let's try to stick to that, it can even be abstracted to general CRUD class that work with every model you have. But it falls short first time you have to create more then one object. Like user and subscription.
+
+Like that?
+```python
+def create_user(*, session: Session, user_create: UserCreate) -> User:
+    db_obj = User.model_validate(user_create)
+    session.add(db_obj)
+    session.commit()
+    session.refresh(db_obj)
+    return db_obj
+
+def create_subscription(
+    *, session: Session, subscription_create: SubscriptionCreate
+) -> Subscription:
+    db_obj = Subscription.model_validate(subscription_create)
+    session.add(db_obj)
+    session.commit()
+    session.refresh(db_obj)
+    return db_obj
+
+user = create_user(session=session, user_create=user_create)
+subscription = create_subscription(
+    session=session, subscription_create=subscription_create
+)
+user.subscription = subscription
+session.commit()
+```
+
+Wrong! It is prone to problem mentioned before.
+
+Maybe something like that?
+```python
+def create_user(*, session: Session, user_create: UserCreate, subscription: Subscription) -> User:
+    db_obj = User.model_validate(user_create)
+    db_obj.subscription = subscription
+    session.add(db_obj)
+    session.commit()
+    session.refresh(db_obj)
+    return db_obj
+```
+
+Same problem, if you created subscription using same crud logic. Hmmm, how about
+```python
+def create_user(*, session: Session, user_create: UserCreate, subscription_create: SubscriptionCreate) -> User:
+    db_obj = User.model_validate(user_create)
+    db_obj.subscription = Subscription.model_validate(subscription_create)
+    session.add(db_obj)
+    session.commit()
+    session.refresh(db_obj)
+    return db_obj
+```
+
+Kinda works. But only for creating user and subscription together. What if you want to create new subscription for existing user? What about rollbacks if there are more actions?
+
+This may lead you to treat the database schema as malleable—driven by your code structure rather than the data itself.
+
+The approach proposed in this repo is quite hard to work with
+
+## A better solution.
+
+Let's take a look at `backend/app/api/deps.py` file in the same repo.
+
+```python
+def get_db() -> Generator[Session, None, None]:
+    with Session(engine) as session:
+        yield session
+```
+[source](https://github.com/fastapi/full-stack-fastapi-template/blob/d1df85e8098d72c0a43ff0da6dda8bb6662b3a44/backend/app/api/deps.py)
+
+What if we used idea from before, and provide session object that is never meant to be committed.
+```python
+def db_session() -> Generator[Session, None, None]::
+    with Session(engine) as session:
+      with session.begin():
+        yield session
+
+SessionDep = Annotated[Session, Depends(db_session)]
+```
+
+This way session lifetime is bound to the lifetime of http request/response. After view function returned transaction is committed. It is the only place where it could happen, so it solves problem of multiple commits. Let's put quick example together.
+
+Out starting point would be again example from [FastAPI docs](https://fastapi.tiangolo.com/tutorial/sql-databases/) with little modifications:
+
+```python
+def create_db_and_tables():
+    Base.metadata.create_all(engine)
+
+
+def db_session() -> Generator[Session, None, None]:
+    with Session(engine) as session:
+        with session.begin():
+            yield session
+
+SessionDep = Annotated[Session, Depends(db_session)]
+
+@app.post("/heroes/")
+def create_hero(hero: HeroModel, session: SessionDep) -> HeroModel:
+    hero = Hero(**hero.model_dump())
+    session.add(hero)
+    session.flush()
+    return HeroModel.model_validate(hero)
+```
+
+Logs:
+```bash
+$ curl -X 'POST' 'http://127.0.0.1:8000/heroes/' -H 'accept: application/json' -H 'Content-Type: application/json' -d '{"id": 1,"name": "Zeus","age": 999,"secret_name": "Stormy"}'
+{"id":1,"name":"Zeus","age":999,"secret_name":"Stormy"}
+
+$ curl -X 'POST' 'http://127.0.0.1:8000/heroes/' -H 'accept: application/json' -H 'Content-Type: application/json' -d '{"id": 1,"name": "Zeus","age": 999,"secret_name": "Stormy"}'
+Internal Server Error
+```
+
+First request finished with success, second one failed with `IntegrityError` because we tried to add the same hero twice. Look at logs from server
+```$ uv run uvicorn --host 0.0.0.0 --reload example1:app
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+2025-04-13 18:59:30,041 INFO BEGIN (implicit)
+2025-04-13 18:59:30,042 INFO PRAGMA main.table_info("hero")
+2025-04-13 18:59:30,042 INFO [raw sql] ()
+2025-04-13 18:59:30,042 INFO PRAGMA temp.table_info("hero")
+2025-04-13 18:59:30,042 INFO [raw sql] ()
+2025-04-13 18:59:30,042 INFO sqlalchemy.engine.Engine
+CREATE TABLE hero (
+        id INTEGER NOT NULL,
+        name VARCHAR NOT NULL,
+        age INTEGER NOT NULL,
+        secret_name VARCHAR NOT NULL,
+        PRIMARY KEY (id)
+)
+
+
+2025-04-13 18:59:30,042 INFO [no key 0.00006s] ()
+2025-04-13 18:59:30,061 INFO COMMIT
+INFO:     Application startup complete.
+2025-04-13 18:59:35,400 INFO BEGIN (implicit)
+2025-04-13 18:59:35,401 INFO INSERT INTO hero (id, name, age, secret_name) VALUES (?, ?, ?, ?)
+2025-04-13 18:59:35,401 INFO [generated in 0.00013s] (1, 'string', 0, 'string')
+2025-04-13 18:59:35,413 INFO COMMIT
+INFO:     127.0.0.1:35208 - "POST /heroes/ HTTP/1.1" 200 OK
+2025-04-13 18:59:49,867 INFO BEGIN (implicit)
+2025-04-13 18:59:49,867 INFO INSERT INTO hero (id, name, age, secret_name) VALUES (?, ?, ?, ?)
+2025-04-13 18:59:49,868 INFO [cached since 14.47s ago] (1, 'string', 0, 'string')
+2025-04-13 18:59:49,868 INFO ROLLBACK
+INFO:     127.0.0.1:35224 - "POST /heroes/ HTTP/1.1" 500 Internal Server Error
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "/home/labs/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1964, in _exec_single_context
+    self.dialect.do_execute(
+  File "/home/labs/.venv/lib/python3.12/site-packages/sqlalchemy/engine/default.py", line 945, in do_execute
+    cursor.execute(statement, parameters)
+sqlite3.IntegrityError: UNIQUE constraint failed: hero.id
+
+The above exception was the direct cause of the following exception:
+
+  Traceback removed for brevity
+
+sqlalchemy.exc.IntegrityError: (sqlite3.IntegrityError) UNIQUE constraint failed: hero.id
+[SQL: INSERT INTO hero (id, name, age, secret_name) VALUES (?, ?, ?, ?)]
+[parameters: (1, 'string', 0, 'string')]
+(Background on this error at: https://sqlalche.me/e/20/gkpj)
+```
+
+## Before FastAPI 0.106.0
+FastAPI 0.106.0 brought substantial changes to how dependencies are resolved. If you look [docs for dependencies with yield](https://fastapi.tiangolo.com/tutorial/dependencies/dependencies-with-yield/#execution-of-dependencies-with-yield) there is a execution diagram. You can see that if now dependencies with yield are solved before response is returned to client thus if error is raised in them user will get 500 error.
+
+That was not the case for FastAPI before 0.106.0. Dependencies with yield were resolved after response was returned. So with approach proposed above you will still get 200 response, then app will throw an error and rollback transaction.
+
+I used solution for that using Request object as context to a http request and pass session on it. I wont go into more details because problem is gone and that was hacky anyway.
+
+## Control over the exception
+One valid concern is that after returning from the view function, you can't handle database exceptions directly. Your options are limited: log the error, return a 500 error, or handle it through an exception handler.
+
+While this is true I think is it worth asking yourself "but how I even wanted to react"? I most of cases when `commit()` fails error could be prevented before (think missing unique check).
+
+Would you like to react to every commit, and check if there was no unique violation and gracefully handle it? I don't think so. For vast majority of cases error on `commit()` is state you can't recover from easily and it is best to just propagate error to client. Let him try again.
+
+For those rare cases when you need more control nothing prevents you from spinning up another session (and transaction).
+
+## TL;DR
+* Don't commit in the middle of your code
+* Use `session.flush()` when you need to get id of object or to run db triggers
+* Bind session lifetime to http request/response.
+* Begin and commit/rollback session in dependency with yield
+* Let it fail and send user a 500 when it crash on commit.
+
+## Closing thoughts
+There are tons of articles online about FastAPI + SQLAlchemy that exhibits this early commit problem. I don't want to link them here because I believe it is better to help understand the problem and not just say someone else is wrong.
+
+That was a lengthy post but I hope it was worth it. We went from bottom up but there are still a lot of simplifications. Mostly because SQLAlchemy is a beast and there are many ways to do things. For example you can even prevent creating sessions implicitly by setting `autobegin=False`. Look at the [docs](https://docs.sqlalchemy.org/en/20/orm/session_basics.html#auto-begin)
+
+One thing that you have to remember that I choose a very specific setup here. I bound session lifetime to http request/response. This means that this solution may not be best for other cases. Like in integration tests, where you need to commit before sending a request with the test client because your app will not see change from different db transaction.
+
+
