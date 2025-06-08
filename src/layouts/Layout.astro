@@ -21,9 +21,14 @@ const { title, description } = Astro.props;
       <script
       async
       is:inline
-      data-astro-rerun
       src="https://trk2.nbit.blog/script.js"
       data-website-id="72bce35c-6e17-40ce-9e80-d6224b77445e"></script>
+    <script>
+      document.addEventListener("astro:after-swap", () => {
+        // Run after every additional navigation by Astro
+        void window.umami.track((props) => ({ ...props }));
+      });
+    </script>
   </head>
   <body>
     <Header />
