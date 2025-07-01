@@ -1,26 +1,26 @@
 ---
 title: "SQLAlchemy sessions in FastAPI"
-description: "You’re probably using them wrong. Maybe. Probably. How would I know?"
+description: "You're probably using them wrong. Maybe. Probably. How would I know?"
 date: "2025-04-13"
 ---
 
 import Callout from "@/components/Callout.astro";
 
 ---
-## You’re probably using them wrong. Maybe. Probably.
+## You're probably using them wrong. Maybe. Probably.
 
 In this article, I want to talk about a common problem with SQLAlchemy sessions in FastAPI. We'll discuss why you shouldn't commit a session multiple times, what can go wrong, and how to handle it better.
 
 The examples are based on the current SQLAlchemy 2.0 docs, but most of the concepts apply to older versions as well. It also doesn't matter whether you're using synchronous or asynchronous SQLAlchemy.
 
-And this issue isn’t even limited to Python or SQLAlchemy.
+And this issue isn't even limited to Python or SQLAlchemy.
 
 Take a seat and enjoy the ride.
 
 
 ## What Is a SQL Session Anyway?
 
-You’re probably familiar with sessions in SQLAlchemy:
+You're probably familiar with sessions in SQLAlchemy:
 
 ```python
 from sqlalchemy import create_engine
@@ -31,16 +31,16 @@ with Session(engine) as session:
   ...
 ```
 
-But if you start Googling for "Postgres session" or "MySQL session," you’ll quickly find that there’s no such concept in database terminology. You’ll come across *transactions* and *connections*, but not sessions.
+But if you start Googling for "Postgres session" or "MySQL session," you'll quickly find that there's no such concept in database terminology. You'll come across *transactions* and *connections*, but not sessions.
 
 <Callout type="warning">
   SQLAlchemy Session is one or more database transactions.
 </Callout>
 
-"Session" and "transaction" are often used interchangeably in SQLAlchemy, though technically they’re different things. Most of the time, a session acts like a transaction.
+"Session" and "transaction" are often used interchangeably in SQLAlchemy, though technically they're different things. Most of the time, a session acts like a transaction.
 
 ## What is a transaction, then?
-Let’s keep this short. This post isn’t a deep dive into ACID compliance or database theory. Here’s a simplified explanation:
+Let's keep this short. This post isn't a deep dive into ACID compliance or database theory. Here's a simplified explanation:
 
 ```sql
 BEGIN; -- transaction starts with BEGIN
@@ -137,7 +137,7 @@ As you can see in logs sqlalchemy starts a new transaction. Then it checks if ta
 
 ### Session context manager
 
-Next, let’s explore creating and using sessions. This isn’t a full SQLAlchemy tutorial, so we’ll focus on how it interacts with the DB.
+Next, let's explore creating and using sessions. This isn't a full SQLAlchemy tutorial, so we'll focus on how it interacts with the DB.
 
 First let's introduce SQLAlchemy's `sessionmaker` so we don't need to pass engine every time explicitly. Also we'll touch on one more feature of sessionmaker shortly.
 
@@ -204,7 +204,7 @@ def sessionmaker(*args, **kwargs):
     return session
 ```
 
-This of a simplification, of course but it makes the point. This is mostly what you would use `sessionmaker` for.
+This is a simplification, of course but it makes the point. This is mostly what you would use `sessionmaker` for.
 
 But there is one (among many others) interesting feature that is provides.
 
@@ -329,7 +329,7 @@ Bob got rolled back
 COMMIT
 ```
 
-Look at the logs. There are 2 transactions. In first we add Bob, this transaction is rolled back. Then we start a new transaction to check if Bob exists in database.We already knew Bob wouldn’t be in the database since last transaction was rolled back but now we're sure.
+Look at the logs. There are 2 transactions. In first we add Bob, this transaction is rolled back. Then we start a new transaction to check if Bob exists in database.We already knew Bob wouldn't be in the database since last transaction was rolled back but now we're sure.
 
 
 ### Explicit commits
@@ -415,7 +415,7 @@ This example might seem trivial. But imagine passing the session object to anoth
 
 You have orders already in database but you didn't update your inventory? Oops. You were importing data to CRM system, something went wrong half way and system won't let you try again because half of employees are already in database? Oops.
 
-Almost all these scenarios require manual database intervention. Good luck reverting 10+ tables to proper state. This can be nerve wrecking as it will probably be happen under time pressure. Also, let’s be honest, it is not a fun job.
+Almost all these scenarios require manual database intervention. Good luck reverting 10+ tables to proper state. This can be nerve wrecking as it will probably be happen under time pressure. Also, let's be honest, it is not a fun job.
 
 <Callout type="warning">
   Don't commit session before it's lifetime is over
@@ -468,14 +468,6 @@ with db_session() as session:
 BEGIN (implicit)
 INSERT INTO user_account (name, fullname) VALUES (?, ?)
 [generated in 0.00012s] ('Bob', 'Robert Smith')
-Bob id is: 1
-COMMIT
-BEGIN (implicit)
-SELECT user_account.id AS user_account_id, user_account.name AS user_account_name, user_account.fullname AS user_account_fullname
-FROM user_account
-WHERE user_account.name = ?
- LIMIT ? OFFSET ?
-[generated in 0.00012s] ('Bob', 1, 0)
 Bob id is: 1
 COMMIT
 ```
