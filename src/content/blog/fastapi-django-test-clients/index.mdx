@@ -1,0 +1,313 @@
+---
+title: "Testing client in python tests"
+tags: ["fastpi", "django", "testing", "python", "wsgi", "asgi"]
+authors: ["Maciek Sobczak"]
+description: "What is testing client and how one from Django is special"
+date: "2025-07-01"
+---
+
+import Callout from "@/components/Callout.astro";
+import { Aside } from '@astrojs/starlight/components';
+
+---
+## It always begins with other problem
+
+Look it is always like this. Someone asks one question, you find it interesting. One question leads to another, and before you know it, boom! You're writing a blog post about something completely different.
+
+In this case problem we started with was, you may believe or not "how do I cleanup database between tests?" Easy, just drop it and recreate it. Like you always did. Never thought more about it.
+
+You give as answer to your friend, quick easy win, you'll remind him next time you are in the pub he owes you a beer for something that he could've googled in 30 seconds.
+
+"Ok, that makes sense. I come from rails world where it is done automatically". Django does that as well. And this intrusive though starts to settle in. Takes of it's coat, sits comfortably on couch, and whispers to your ear "Exactly Maciek, how the fuck django does that?"
+
+But that will be next blog post. Lets set the stage first and talked about something we rarely think about. Test client. The one you call with `client.get` in tests.
+
+## What test client is?
+
+We will use FastAPI as an example. Don't worry if you don't know FastAPI it won't matter, I promise.
+
+So this is an example from official fastAPI docs
+```python
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+
+app = FastAPI()
+
+
+@app.get("/")
+async def read_main():
+    return {"msg": "Hello World"}
+
+
+client = TestClient(app)
+
+
+def test_read_main():
+    response = client.get("/")
+    assert response.status_code == 200
+    assert response.json() == {"msg": "Hello World"}
+```
+[source](https://fastapi.tiangolo.com/tutorial/testing/#using-testclient)
+
+We immediately can say things about what testing client is, without deeper though. Maybe they're true, maybe not. Let's look professional and write something down. We'll verify this later.
+1. client is used to make requests to our application in tests
+2. we don't have to provide app url
+3. looks like normal http client
+
+Very important sidenote first
+
+### Very important sidenote
+Look, it has to happen. We'll dig into some source code. Don't be afraid. I know, I know it is scary.
+
+Jokes aside, for quite a long time I was afraid of source code. I thought it is too complicated, too much to understand, and I won't be able to do it. I'm to dump to understand code that is good enough to be open source. Really. It can be daunting task to clone the repo and start reading it. I'd better find something on stack overflow!
+
+You know what worst can happen? You won't understand it. Each time you dive into someone else source code you grow. Grow by getting more comfortable in new environments. You get to see new patterns and solution. You find an answer yourself to a question instead of reading this blog post. You start to know what to look for.
+
+Some will say that figuring stuff out yourself is the best way to learn. Maybe. Being able not know something, ask question and figure that out is an awesome feeling.
+
+So much of our time as developers is spent on reading code. Practice this skill. Many times it is much easier to read source then to find someone who know what code does and still works at your company. I hope by reading this you'll see that it is not that scary.
+
+## Fastpi test client
+
+Docs says FastAPI's test client is a wrapper around [httpx](https://www.python-httpx.org/). Httpx is http client (go look at it's page, you won't find anything about testing there). We're getting somethere, it is just http client.
+
+Also FastAPI docs say that it test client is just wrapper over starlette's one. So we should look there.
+
+```python
+from starlette.testclient import TestClient as TestClient  # noqa
+```
+[source](https://github.com/fastapi/fastapi/blob/master/fastapi/testclient.py)
+
+Reading [starlette's test client](https://github.com/encode/starlette/blob/master/starlette/testclient.py) source code may seem overwhelming. 800 lines of code, some ASGI, async stuff, what what the hell `anyio.streams.stapled` even is? Lets try to make more sense of it and dismantle it a bit.
+
+You quickly find tha there are plenty of stuff related to websocket. We don't care right now. Let's skip that.
+
+Start with `TestClient` class. It has methods like `get`, `post`, `put`, `delete`, `patch`, `head`, `options` which you are familiar with if ever used any http client.
+
+```python
+def get(  # type: ignore[override]
+    self,
+    url: httpx._types.URLTypes,
+    *,
+    params: httpx._types.QueryParamTypes | None = None,
+    headers: httpx._types.HeaderTypes | None = None,
+    cookies: httpx._types.CookieTypes | None = None,
+    auth: httpx._types.AuthTypes | httpx._client.UseClientDefault = httpx._client.USE_CLIENT_DEFAULT,
+    follow_redirects: bool | httpx._client.UseClientDefault = httpx._client.USE_CLIENT_DEFAULT,
+    timeout: httpx._types.TimeoutTypes | httpx._client.UseClientDefault = httpx._client.USE_CLIENT_DEFAULT,
+    extensions: dict[str, Any] | None = None,
+) -> httpx.Response:
+    return super().get(
+        url,
+        params=params,
+        headers=headers,
+        cookies=cookies,
+        auth=auth,
+        follow_redirects=follow_redirects,
+        timeout=timeout,
+        extensions=extensions,
+    )
+```
+[source](https://github.com/encode/starlette/blob/master/starlette/testclient.py)
+
+Looks scary right? Right. Is it? Not really. Take a closer look. It just calls `super().get(...)` which is `httpx.Client.get`. Nothing more. Only thing I can think of why it is done this way to make sure that if `httpx.Client.get` changes, `TestClient.get` interface stays the same.
+
+We can also ignore `__enter__` and `__exit__` methods as we don't care about context manager, it wasn't in our simple example. Only interesing metods left in `TestClient` is `__init__`.
+
+```python
+def __init__(self, app: ASGIApp, base_url: str = "http://testserver", client: tuple[str, int] = ("testclient", 50000), ...) -> None:  # abbreviated
+
+    # abbreviated
+
+    self.app = asgi_app
+    self.app_state: dict[str, Any] = {}
+    transport = _TestClientTransport(
+        self.app,
+        portal_factory=self._portal_factory,
+        raise_server_exceptions=raise_server_exceptions,
+        root_path=root_path,
+        app_state=self.app_state,
+        client=client,
+    )
+    if headers is None:
+        headers = {}
+    headers.setdefault("user-agent", "testclient")
+    super().__init__(
+        base_url=base_url,
+        headers=headers,
+        transport=transport,
+        follow_redirects=follow_redirects,
+        cookies=cookies,
+```
+[source](https://github.com/encode/starlette/blob/master/starlette/testclient.py)
+
+I cut out couple of line there, for brevity. Again, it mostly passes stuff from init to `super()` call. **It adds it's own transport!**
+
+## Transport
+
+So what is the transport? Httpx [docs](https://www.python-httpx.org/advanced/transports/) is good place to start.
+
+> HTTPX's Client also accepts a transport argument. This argument allows you to provide a custom Transport object that will be used to perform the actual sending of the requests.
+
+That is it. So http client knows what are HTTP methods, how to handle cookies, headers, etc. Transport on the other hand know nothing about that. It is only interested how to send request and receive response.
+
+Wait, what? Isn't like http always sent over TCP or something like that? Well yes, normally it is. This is a separation of concerns. Like in real life transport. You know you have to put proper sticker on your package to sent it to a friend, but you don't care how it is delivered. That is what transport does. Don't like comparisons to real life? Ok.
+
+Transport is responsible for handling socket connections, TLS, timeouts. Want to use http2? Just change transport layer. HTTP client should not care about that.
+
+```python
+class BaseTransport:
+
+    def handle_request(self, request: Request) -> Response:
+        raise NotImplementedError(
+            "The 'handle_request' method must be implemented."
+        )  # pragma: no cover
+
+    def close(self) -> None:
+        pass
+```
+[source](https://github.com/encode/httpx/blob/master/httpx/_transports/base.py)
+
+This is source code of httpx's `BaseTransport`. It check out with what we talked about minute ago. We have implement method that takes request and returns response.
+
+
+## WSGI
+
+Our test client takes ASGI app as an argument and passes it to the `_TestClientTransport`.
+
+```python
+class TestClient(httpx.Client):
+    def __init__(
+            self,
+            app: ASGIApp,
+    ...
+
+    transport = _TestClientTransport(self.app, ...)
+```
+[source](https://github.com/encode/starlette/blob/master/starlette/testclient.py)
+
+So what is ASGI? Lets take a step back to WSGI, it will be easier to understand because ASGI is just adaptation for async world.
+
+Idea of WSGI is to provide interface between web server and web application. Separation of concerns again. Let framework (like fastapi) handle application logic. It doesn't have to know anything about sockets, connections, SSL, ports, ips and any of that stuff. It only cares about getting a request and returning a response.
+
+WSGI is not a magic, it is really simple. Lets look at simples WSGI app.
+
+```python
+def app(environ, start_response):
+    status = '200 OK'
+    response_headers = [('Content-type', 'text/plain')]
+    start_response(status, response_headers)
+    return ['Hello world!\n'] # can also yield
+```
+
+So, it is a function that `environ` and  `start_response`. `environ` is a dictionary with request data, like headers, method, path, etc. It has well defined keys in it. `start_response` is a function and well, it start response. To return response, we `start_response` with status and headers and return iterable with bytes that are body of http response.
+
+For more info you should go to WSGI specs [PEP-3333](https://peps.python.org/pep-3333/)
+
+Why is it split into two parts instead of just return status, headers and body at once. This way web server can start sending response to the client before application is done processing the request. To be honest I don't think you'll encounter it that much in the wild. One example is returning a very big file. WSGI app can read a file chunk by chunk from disk and yield each chunk to client.
+
+There are WSGI equivalents in other languages. For example Ruby has `rack` which is widely used.
+
+```ruby
+class HelloWorld
+  def call (env)
+    [200, {"content-type" => "text/html; charset=utf-8"}, ["Hello World"]]
+  end
+end
+
+run HelloWorld.new
+```
+[source](https://en.wikipedia.org/wiki/Rack_(web_server_interface))
+
+As you can see ruby ditched separate `start_response` and return value.
+
+Did you ever used any of those:
+```bash
+$ gunicorn -w 4 main:app
+$ uvicorn main:app
+```
+
+What you did is you pointed web server (gunicorn/uvicorn) to WSGI or ASGI app.
+
+```python
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)
+```
+
+That is the same, but not from CLI.
+
+```python
+$ fastapi run main.py
+```
+
+Same, look at source code [here](https://github.com/fastapi/fastapi-cli/blob/main/src/fastapi_cli/cli.py#L78)
+
+Even `python manage.py runserver` operates on WSGI aplication but it is not that streightforward to should with one url. But don't take my word for that! Start [here](https://github.com/django/django/blob/main/django/core/management/commands/runserver.py) and figure that out on your own!
+
+### ASGI
+
+So ASGI is just a way to do the same thing in async world. It is not that complicated, it is just a different interface.
+
+```python
+async def application(scope, receive, send):
+    event = await receive()
+    ...
+    await send({"type": "websocket.send", ...})
+```
+[source](https://github.com/encode/starlette/blob/master/starlette/testclient.py)
+
+It is based on async send and receive functions that pass events instead of return value of function. ASGI is super of WSGI so ASGI can handle WSGI app with some adapter layer. I don't feel like you need to know more right now. Having grasp of the WSGI and the concept of separation is enough as this post is getting long already.
+
+More on ASGI here: [https://asgi.readthedocs.io/en/latest/index.html](https://asgi.readthedocs.io/en/latest/index.html)
+
+
+## Back to the transport
+
+We have all the pieces now:
+* transport knows how to send request and receive response
+* Starlette implements it's own transport which takes ASGI
+* ASGI app can handle request and return response
+
+So test client is like any other ordinary http client. Only difference is that it doesn't use address and port to communicate with server. It implements transport that communicates with ASGI app directly. Not network hop.
+
+Lets go back to our initial assumptions from beginning.
+
+> * client is used to make requests to our application in tests
+> * looks like normal http client
+
+Yes! That is the idea. And it is just a normal http client. Heck if we want, we can start our app (using unicorn for example), use normal http client in tests, point it to our server and it will work exactly the same!
+
+> * we don't have to provide app url
+
+Now we know why exactly. There is no url, there is no address because there is no web server in between. Custom transport allows us to communicate right between http client and our app our (using ASGI)
+
+With all this knowledge I strongly encourage you to go to the [https://github.com/encode/starlette/blob/master/starlette/testclient.py](https://github.com/encode/starlette/blob/master/starlette/testclient.py) and check out how custom transport communicates with ASGI app. Don't worry about that portal stuff which seems to out of this planet. Only thing you need to know is that calling trough portal solves problem with multiple event loops.
+
+Notice in ASGI there is a way to get extra data from inside app that is not strictly http response. This is an so called ASGI extension.
+```python
+elif message["type"] == "http.response.debug":
+    template = message["info"]["template"]
+    context = message["info"]["context"]
+```
+
+## Django test client
+
+Now we have strong understanding how simplest test client we can dive into the django test client. But this is material for next blog post :)
+
+Don't expect anything vastly different there, it uses wsgi client too. It will allow us to start digging deeper to figure out how django can automatically revert all database changes.
+
+**Disclaimer**: at the moment of writing this post I didn't check if my hunch on how it is done is correct. If not I'll revise this post with short summary what is different in Django's approach.
+
+## Summary
+
+Quite a journey, huh? We started with question what is this testing client and went trough http clients, transport, WSGI and ASGI.
+
+But more import thing is we figured it by ourselves but reading source code!
+
+Key takeaways:
+
+* In FastAPI client used in tests in just a normal http client
+* http client doesn't have to sent request over the network
+* transport is layer that is responsible for delivering messages, protocol client is responsible for what goes to the message
+* we can clone repo from github are check what is going on inside
+* by reading source code we pick up many things along the way
