@@ -185,9 +185,9 @@ class TestClient(httpx.Client):
 ```
 [source](https://github.com/encode/starlette/blob/master/starlette/testclient.py)
 
-So what is ASGI? Lets take a step back to WSGI, it will be easier to understand because ASGI is just adaptation for async world.
+So what is ASGI? Lets take a step back to look at WSGI, it will be easier to understand because ASGI is just adaptation for async world (kinda).
 
-Idea of WSGI is to provide interface between web server and web application. Separation of concerns again. Let framework (like fastapi) handle application logic. It doesn't have to know anything about sockets, connections, SSL, ports, ips and any of that stuff. It only cares about getting a request and returning a response.
+Idea of WSGI is to provide interface between web server and web application. Separation of concerns again. Let framework (like fastapi) handle application logic. It doesn't have to know anything about sockets, connections, SSL, ports, IPs and any of that stuff. It only cares about getting a request and returning a response.
 
 WSGI is not a magic, it is really simple. Lets look at simples WSGI app.
 
@@ -199,7 +199,7 @@ def app(environ, start_response):
     return ['Hello world!\n'] # can also yield
 ```
 
-So, it is a function that `environ` and  `start_response`. `environ` is a dictionary with request data, like headers, method, path, etc. It has well defined keys in it. `start_response` is a function and well, it start response. To return response, we `start_response` with status and headers and return iterable with bytes that are body of http response.
+So, it is a function that takes `environ` and `start_response`. `environ` is a dictionary with request data, like headers, method, path, etc. It has well defined keys in it. `start_response` is a function and well, it start response. To return response, we `start_response` with status and headers and return iterable with bytes that are body of http response.
 
 For more info you should go to WSGI specs [PEP-3333](https://peps.python.org/pep-3333/)
 
@@ -241,7 +241,7 @@ $ fastapi run main.py
 
 Same, look at source code [here](https://github.com/fastapi/fastapi-cli/blob/main/src/fastapi_cli/cli.py#L78)
 
-Even `python manage.py runserver` operates on WSGI aplication but it is not that streightforward to should with one url. But don't take my word for that! Start [here](https://github.com/django/django/blob/main/django/core/management/commands/runserver.py) and figure that out on your own!
+Even `python manage.py runserver` operates on WSGI application but it is not that straightforward to should with one url. But don't take my word for that! Start [here](https://github.com/django/django/blob/main/django/core/management/commands/runserver.py) and figure that out on your own!
 
 ### ASGI
 
@@ -264,10 +264,10 @@ More on ASGI here: [https://asgi.readthedocs.io/en/latest/index.html](https://as
 
 We have all the pieces now:
 * transport knows how to send request and receive response
-* Starlette implements it's own transport which takes ASGI
+* Starlette test client implements it's own transport which takes ASGI app as an argument
 * ASGI app can handle request and return response
 
-So test client is like any other ordinary http client. Only difference is that it doesn't use address and port to communicate with server. It implements transport that communicates with ASGI app directly. Not network hop.
+So test client is like any other ordinary http client. Only difference is that it doesn't use address and port to communicate with server. It implements transport that communicates with ASGI app directly. Not ovet the network hop.
 
 Lets go back to our initial assumptions from beginning.
 
@@ -278,7 +278,7 @@ Yes! That is the idea. And it is just a normal http client. Heck if we want, we 
 
 > * we don't have to provide app url
 
-Now we know why exactly. There is no url, there is no address because there is no web server in between. Custom transport allows us to communicate right between http client and our app our (using ASGI)
+Now we know why exactly. There is no url, there is no address because there is no web server in between. Custom transport allows us to communicate right between http client and our app our (using ASGI). One sidenote, that is not really true there no url, because many features rely on `Host` header, but in this context in mostly can stay hardocded. And it is [here](https://github.com/encode/starlette/blob/master/starlette/testclient.py#L382)
 
 With all this knowledge I strongly encourage you to go to the [https://github.com/encode/starlette/blob/master/starlette/testclient.py](https://github.com/encode/starlette/blob/master/starlette/testclient.py) and check out how custom transport communicates with ASGI app. Don't worry about that portal stuff which seems to out of this planet. Only thing you need to know is that calling trough portal solves problem with multiple event loops.
 
@@ -288,6 +288,17 @@ elif message["type"] == "http.response.debug":
     template = message["info"]["template"]
     context = message["info"]["context"]
 ```
+
+
+## No magic?
+
+Yup, not at all. But I want to emphasize one thing.
+
+Since there is no magic your request in processed in exactly same way it would be if you used normal http client, `http`, `wget` or browser. For FastAPI, your decencies are resolved in same manner at in normal request. That means you have two separate database connections, one that you created for test, and one that app created.
+
+This is the reason why you can just rollback transaction you used in test and have changes done by app rolled back. Also reason for why you have to commit transaction in test before calling app endpoint in tests - so app can see changes done by other transaction, one in test.
+
+Now it may be a bit cleaner why even though problem started a "database in tests" it is connected to test clients.
 
 ## Django test client
 
@@ -305,8 +316,9 @@ But more import thing is we figured it by ourselves but reading source code!
 
 Key takeaways:
 
-* In FastAPI client used in tests in just a normal http client
+* In FastAPI client used in tests is just a normal http client
 * http client doesn't have to sent request over the network
 * transport is layer that is responsible for delivering messages, protocol client is responsible for what goes to the message
+* WSGI is interface between web server and application
 * we can clone repo from github are check what is going on inside
 * by reading source code we pick up many things along the way
