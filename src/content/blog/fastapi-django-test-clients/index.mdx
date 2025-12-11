@@ -281,7 +281,7 @@ Yes! That is the idea. And it is just a normal HTTP client. Heck, if we want, we
 
 Now we know exactly why. There is no URL, there is no address because there is no web server in between. The custom transport allows us to communicate directly between the HTTP client and our app (using ASGI). One side note, it is not really true that there's no URL, because many features rely on the `Host` header, but in this context it can mostly stay hardcoded. And it is [here](https://github.com/encode/starlette/blob/master/starlette/testclient.py#L382)
 
-With all this knowledge I strongly encourage you to go to [https://github.com/encode/starlette/blob/master/starlette/testclient.py](https://github.com/encode/starlette/blob/master/starlette/testclient.py) and check out how the custom transport communicates with the ASGI app. Don't worry about that portal stuff which seems out of this world. The only thing you need to know is that calling through the portal solves the problem with multiple event loops.
+With all this knowledge I strongly encourage you to go to [https://github.com/encode/starlette/blob/master/starlette/testclient.py](https://github.com/encode/starlette/blob/master/starlette/testclient.py) and check out how the custom transport communicates with the ASGI app. Don't worry about that portal stuff which seems out of this world. The only thing you need to know is that portal is used to call async function from sync function - is runs it in different thread. It is done like this, because ASGI application is async by design and test client is sync.
 
 Notice in ASGI there is a way to get extra data from inside the app that is not strictly an HTTP response. This is a so-called ASGI extension.
 ```python
