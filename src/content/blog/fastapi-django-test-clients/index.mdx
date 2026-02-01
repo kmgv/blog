@@ -1,6 +1,6 @@
 ---
 title: "Test client in python tests"
-tags: ["fastpi", "django", "testing", "python", "wsgi", "asgi"]
+tags: ["fastapi", "django", "testing", "python", "wsgi", "asgi"]
 authors: ["Maciek Sobczak"]
 description: "What is testing client and how one from Django is special"
 slug: "test-client-python-tests"
@@ -22,7 +22,7 @@ You give this as an answer to your friend, quick easy win, you'll remind him nex
 
 But that will be the next blog post. Let's set the stage first and talk about something we rarely think about. The test client. The one you call with `client.get` in tests.
 
-## What test client is?
+## What is a test client?
 
 We will use FastAPI as an example. Don't worry if you don't know FastAPI it won't matter, I promise.
 
@@ -59,13 +59,13 @@ Very important side note first
 ### Very important side note
 Look, it has to happen. We'll dig into some source code. Don't be afraid. I know, I know it is scary.
 
-Jokes aside, for quite a long time I was afraid of source code. I thought it is too complicated, too much to understand, and I won't be able to do it. I'm to dump to understand code that is good enough to be open source. Really. It can be daunting task to clone the repo and start reading it. I'd better find something on stack overflow!
+Jokes aside, for quite a long time I was afraid of source code. I thought it is too complicated, too much to understand, and I won't be able to do it. I'm too dumb to understand code that is good enough to be open source. Really. It can be a daunting task to clone the repo and start reading it. I'd better find something on stack overflow!
 
-You know what worst can happen? You won't understand it. Each time you dive into someone else source code you grow. Grow by getting more comfortable in new environments. You get to see new patterns and solution. You find an answer yourself to a question instead of reading this blog post. You start to know what to look for.
+You know what worst can happen? You won't understand it. Each time you dive into someone else source code you grow. Grow by getting more comfortable in new environments. You get to see new patterns and solutions. You find an answer yourself to a question instead of reading this blog post. You start to know what to look for.
 
-Some will say that figuring stuff out yourself is the best way to learn. Maybe. Being able not know something, ask question and figure that out is an awesome feeling.
+Some will say that figuring stuff out yourself is the best way to learn. Maybe. Being able to not know something, ask a question and figure that out is an awesome feeling.
 
-So much of our time as developers is spent on reading code. Practice this skill. Many times it is much easier to read source then to find someone who know what code does and still works at your company. I hope by reading this you'll see that it is not that scary.
+So much of our time as developers is spent on reading code. Practice this skill. Many times it is much easier to read source than to find someone who knows what code does and still works at your company. I hope by reading this you'll see that it is not that scary.
 
 ## FastAPI test client
 
@@ -80,9 +80,9 @@ from starlette.testclient import TestClient as TestClient  # noqa
 
 Reading [Starlette's test client](https://github.com/encode/starlette/blob/master/starlette/testclient.py) source code may seem overwhelming. 800 lines of code, some ASGI, async stuff, what the hell is `anyio.streams.stapled` even? Let's try to make more sense of it and dismantle it a bit.
 
-You quickly find tha there are plenty of stuff related to websocket. We don't care right now. Let's skip that.
+You quickly find that there are plenty of things related to websocket. We don't care right now. Let's skip that.
 
-Start with `TestClient` class. It has methods like `get`, `post`, `put`, `delete`, `patch`, `head`, `options` which you are familiar with if ever used any http client.
+Start with `TestClient` class. It has methods like `get`, `post`, `put`, `delete`, `patch`, `head`, `options` which you are familiar with if you've ever used any HTTP client.
 
 ```python
 def get(  # type: ignore[override]
@@ -145,7 +145,7 @@ I cut out a couple of lines here and there, for brevity. Again, it mostly passes
 
 ## Transport
 
-So what is the transport? Httpx [docs](https://www.python-httpx.org/advanced/transports/) is good place to start.
+So what is the transport? Httpx [docs](https://www.python-httpx.org/advanced/transports/) is a good place to start.
 
 > HTTPX's Client also accepts a transport argument. This argument allows you to provide a custom Transport object that will be used to perform the actual sending of the requests.
 
@@ -197,10 +197,10 @@ def app(environ, start_response):
     status = '200 OK'
     response_headers = [('Content-type', 'text/plain')]
     start_response(status, response_headers)
-    return ['Hello world!\n'] # can also yield
+    return [b'Hello world!\n'] # can also yield
 ```
 
-So, it is a function that takes `environ` and `start_response`. `environ` is a dictionary with request data, like headers, method, path, etc. It has well defined keys in it. `start_response` is a function and well, it start response. To return response, we `start_response` with status and headers and return iterable with bytes that are body of http response.
+So, it is a function that takes `environ` and `start_response`. `environ` is a dictionary with request data, like headers, method, path, etc. It has well defined keys in it. `start_response` is a function and well, it starts the response. To return a response, we call `start_response` with status and headers and return an iterable with bytes that are the body of the HTTP response.
 
 For more info you should go to the WSGI specs [PEP-3333](https://peps.python.org/pep-3333/)
 
@@ -254,7 +254,6 @@ async def application(scope, receive, send):
     ...
     await send({"type": "websocket.send", ...})
 ```
-[source](https://github.com/encode/starlette/blob/master/starlette/testclient.py)
 
 It is based on async send and receive functions that pass events instead of the return value of a function. ASGI is a superset of WSGI so ASGI can handle a WSGI app with some adapter layer. I don't feel like you need to know more right now. Having a grasp of WSGI and the concept of separation is enough as this post is getting long already.
 
@@ -281,7 +280,7 @@ Yes! That is the idea. And it is just a normal HTTP client. Heck, if we want, we
 
 Now we know exactly why. There is no URL, there is no address because there is no web server in between. The custom transport allows us to communicate directly between the HTTP client and our app (using ASGI). One side note, it is not really true that there's no URL, because many features rely on the `Host` header, but in this context it can mostly stay hardcoded. And it is [here](https://github.com/encode/starlette/blob/master/starlette/testclient.py#L382)
 
-With all this knowledge I strongly encourage you to go to [https://github.com/encode/starlette/blob/master/starlette/testclient.py](https://github.com/encode/starlette/blob/master/starlette/testclient.py) and check out how the custom transport communicates with the ASGI app. Don't worry about that portal stuff which seems out of this world. The only thing you need to know is that calling through the portal solves the problem with multiple event loops.
+With all this knowledge I strongly encourage you to go to [https://github.com/encode/starlette/blob/master/starlette/testclient.py](https://github.com/encode/starlette/blob/master/starlette/testclient.py) and check out how the custom transport communicates with the ASGI app. Don't worry about that portal stuff which seems out of this world. The only thing you need to know is that portal is used to call async function from sync function - it runs it in a different thread. It is done like this, because ASGI application is async by design and test client is sync.
 
 Notice in ASGI there is a way to get extra data from inside the app that is not strictly an HTTP response. This is a so-called ASGI extension.
 ```python
@@ -311,7 +310,7 @@ Don't expect anything vastly different there, it uses a WSGI client too. It will
 
 ## Summary
 
-Quite a journey, huh? We started with question what is this testing client and went trough http clients, transport, WSGI and ASGI.
+Quite a journey, huh? We started with the question what is this testing client and went through HTTP clients, transport, WSGI and ASGI.
 
 But the more important thing is we figured it out by ourselves by reading source code!
 
