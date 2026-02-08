@@ -29,7 +29,7 @@ Same as the last time we will be digging in source code. What's a better place t
 
 We'll skip docs with simple examples as those don't involve client. Let's cut to the chase then:
 
-```python
+```python compact
 >>> from django.test import Client
 >>> c = Client()
 >>> response = c.post("/login/", {"username": "john", "password": "smith"})
@@ -46,7 +46,7 @@ Huh, Django is pretty different. First thing, it creates `Client` without any ar
 ## Test Client
 In the same way as in last post let's try to figure out how test client does the request. I will include only abbreviated snippets here but leave links to source code.
 
-```python
+```python compact
 class Client(ClientMixin, RequestFactory):
 
     def get(self, path, headers=None, query_params=None, **extra):
@@ -60,7 +60,7 @@ class Client(ClientMixin, RequestFactory):
 
 After digging into `super().get()` we take a very brief stop in `RequestFactory`
 
-```python
+```python compact
 class RequestFactory:
     """
     Class that lets you create mock Request objects for use in testing.
@@ -76,7 +76,7 @@ class RequestFactory:
 Docstring itself gives us a first clue about a difference between tests clients. Look, `RequestFactory` is responsible for creating request object but not just some representation of HTTP request. **Once you have a request object you can pass it to any view function**! Object created by this factory is never meant to touch network or WSGI as FastAPI's one. It is meant to be passed directly to a view function. Let's see if that holds as we dig deeper.
 
 
-```python
+```python compact
 def get(
     self, path, data=None, secure=False, *, headers=None, query_params=None, **extra
 ):
@@ -106,7 +106,7 @@ def generic(self, method, path, headers=None, query_params=None, **extra):
 
 `r` dict, which stands for `request` contains keys resembling WSGI environ variables. But that doesn't mean request will go through WSGI protocol, Django may just use similar representation. So we need to go back to `Client.request()` to check what is going on there.
 
-```python
+```python compact
 def request(self, **request):
     environ = self._base_environ(**request)
 
@@ -140,7 +140,7 @@ We are getting somewhere. So `request` does 3 things.
 
 Our next step is `self.handler`.
 
-```python
+```python compact
 class Client(ClientMixin, RequestFactory):
 
     def __init__(
@@ -153,7 +153,7 @@ class Client(ClientMixin, RequestFactory):
 ```
 <Source path="django/test/client.py:1057" source="django" sources={sources} />
 
-```python
+```python compact
 class ClientHandler(BaseHandler):
 
     def __call__(self, environ):
@@ -190,7 +190,7 @@ You probably heard about middlewares in many other contexts, not only in Django.
 
 Since we are talking about Django today, let's steal code example from their docs.
 
-```python
+```python compact
 def simple_middleware(get_response):
     # One-time configuration and initialization.
 
@@ -210,7 +210,7 @@ def simple_middleware(get_response):
 
 So middleware is a very simple but powerful idea. It allows you to modify request before passing to next middleware and response after next middleware returns a response. You can do something before and after next middleware is called. Wait, doesn't it remind you of something?
 
-```python
+```python compact
 def simple_middleware(get_response):
     def middleware(request):
         response = get_response(request)
@@ -233,7 +233,7 @@ Exactly! Middleware is really similar to decorator and you can think about it th
 
 There is always one last middleware that won't call next in the chain. This middleware will be responsible for handling request and probably routing. Although routing can be split to yet again middleware. Simple example:
 
-```python
+```python compact
 from views import get_users, create_user
 
 
@@ -256,7 +256,7 @@ def routing_middleware(get_response):
 
 Ever wonder how that works that even if your request handler raises an error server doesn't crash? Middleware.
 
-```python
+```python compact
 from views import get_users, create_user
 def error_middleware(get_response):
 
@@ -272,7 +272,7 @@ def error_middleware(get_response):
 
 Logging middleware?
 
-```python
+```python compact
 def logging_middleware(get_response):
 
     def middleware(request):
@@ -287,7 +287,7 @@ def logging_middleware(get_response):
 
 
 Auth middleware
-```python
+```python compact
 def auth_middleware(get_response):
 
     def middleware(request):
@@ -318,7 +318,7 @@ Middleware A response
 ```
 
 Look at how Django defines middleware for project:
-```python
+```python compact
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -336,7 +336,7 @@ And this order makes sense. `SessionMiddleware` is responsible for getting sessi
 
 Let's look at slimmed down version of `load_middleware` function. I removed quite a few things to make it more readable. Most notably async support. In Django source code async support feels like afterthought but this is not a critique. Django was written long before native async support came around. Even modern (recently written) code that has to handle both sync and async at the same time can get quite messy so I feel like it is more like best they could do than lack of attention.
 
-```python
+```python compact
 class BaseHandler:
     def load_middleware(self, is_async=False):
             """
@@ -355,7 +355,7 @@ class BaseHandler:
 
 After all "extras" are removed it is pretty clear what is going on. We start with `self._get_response` and then going in reverse we wrap each middleware. Each middleware is a function that takes request, runs next middleware and returns a response. I want it to be clear so let's bring back simple example
 
-```python
+```python compact
 def simple_middleware(get_response):
     def middleware(request):
         response = get_response(request)
@@ -369,7 +369,7 @@ When we wrap `self._get_response` in first middleware we pass it to `simple_midd
 
 Why wrap in reverse? Remember how we defined middlewares earlier?
 
-```python
+```python compact
 MIDDLEWARE = [
     "django.contrib.sessions.middleware.SessionMiddleware",
     ...
@@ -388,7 +388,7 @@ SessionMiddleware response
 
 This is why we have to go in reverse, wrap `_get_response` in `AuthenticationMiddleware` and then in `SessionMiddleware`. We would do the same with python decorators
 
-```python
+```python compact
 @SessionMiddleware
 @AuthenticationMiddleware
 def get_response(request):
@@ -402,7 +402,7 @@ After running `load_middleware` we end up with `self._middleware_chain` populate
 You probably can feel that I skipped something important like what `get_response` does? Seems pretty important when we're trying to find out how request and response are created. Again I'll slim it down to contain only crème de la crème.
 
 
-```python
+```python compact
 def _get_response(self, request):
         """
         Resolve and call the view, then apply view, exception, and
@@ -423,7 +423,7 @@ def _get_response(self, request):
 ```
 <Source path="django/core/handlers/base.py:176" source="django" sources={sources} />
 
-```python
+```python compact
 def resolve_request(self, request):
         """
         Retrieve/set the urlconf for the request. Return the view resolved,
@@ -443,7 +443,7 @@ We won't go deeper because we got pretty good idea what is going on here and it 
 
 Let's bring back test client for a second. I told you that `self.get_response(request)` will become obvious once we're done with middlewares. Let's go through Django's test client again now, when we have full picture of what is going on under the hood.
 
-```python
+```python compact
 class ClientHandler(BaseHandler):
 
     def __call__(self, environ):

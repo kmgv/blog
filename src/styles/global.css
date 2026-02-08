@@ -109,6 +109,10 @@ pre {
   @apply border border-black/15 py-5 dark:border-white/20;
 }
 
+pre.compact {
+  @apply !mb-1;
+}
+
 :root {
   --astro-code-foreground: #09090b;
   --astro-code-background: #fafafa;
