@@ -1,0 +1,27 @@
+---
+interface Props {
+  path: string;
+  source: string;
+  sources?: Record<string, { repo: string; branch: string }>;
+  link?: string;
+}
+const { link = "source", path, source, sources } = Astro.props;
+
+let url: string;
+
+if (source === "web") {
+  url = path;
+} else {
+  const config = sources![source];
+
+  const [filePath, lineNumber] = path.includes(":")
+    ? [path.slice(0, path.lastIndexOf(":")), path.slice(path.lastIndexOf(":") + 1)]
+    : [path, undefined];
+
+  url = lineNumber
+    ? `https://github.com/${config.repo}/blob/${config.branch}/${filePath}#L${lineNumber}`
+    : `https://github.com/${config.repo}/blob/${config.branch}/${filePath}`;
+}
+---
+
+<a href={url}>{link}</a>

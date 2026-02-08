@@ -3,6 +3,7 @@ import sitemap from "@astrojs/sitemap";
 import mdx from "@astrojs/mdx";
 import pagefind from "astro-pagefind";
 import tailwindcss from "@tailwindcss/vite";
+import { metaClassTransformer } from "./src/lib/rehype-code-meta.mjs";
 
 // https://astro.build/config
 export default defineConfig({
@@ -14,6 +15,7 @@ export default defineConfig({
   markdown: {
     shikiConfig: {
       theme: "css-variables",
+      transformers: [metaClassTransformer()],
     },
   },
 });

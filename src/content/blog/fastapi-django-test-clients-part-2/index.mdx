@@ -1,0 +1,517 @@
+---
+title: "Test client in python tests part 2"
+tags: ["fastapi", "django", "testing", "python", "wsgi", "asgi"]
+authors: ["Maciek Sobczak"]
+description: "What is testing client and how one from Django is special"
+slug: "test-client-python-tests-2"
+date: "2026-02-07"
+---
+
+import Callout from "@/components/Callout.astro";
+import Source from "@/components/Source.astro";
+
+export const sources = {
+  django: { repo: "django/django", branch: "7c54fee" },
+};
+
+---
+## Last time on nbit
+In the last part we looked into how test client works in FastAPI. Even though we started by wondering about how Django handles cleaning up databases between tests it took us on a completely different route. In this post we will take a dive in Django's test client to show the difference and to lay a foundation to understand the main problem we started with.
+
+Let's start with 30 seconds summary from last post that will be relevant in this one:
+- FastAPI's test client uses normal http client to send request to application
+- Those requests are handled by ASGI application in a different thread
+- This works identically to sending request over http using browser or `curl` - you have different database connection in test and application
+
+Post will be long so **TL;DR**
+
+Django’s test client bypasses the WSGI server and calls Django’s internal request handler directly. That single design decision makes it much easier for Django to DB connections across tests and application.
+
+
+## Where to start
+Same as the last time we will be digging in source code. What's a better place to start than looking at Django documentation about tests?
+
+We'll skip docs with simple examples as those don't involve client. Let's cut to the chase then:
+
+```python compact
+>>> from django.test import Client
+>>> c = Client()
+>>> response = c.post("/login/", {"username": "john", "password": "smith"})
+>>> response.status_code
+200
+>>> response = c.get("/customer/details/")
+>>> response.content
+b'<!DOCTYPE html...'
+```
+<Source source="web" path="https://docs.djangoproject.com/en/6.0/topics/testing/tools/#overview-and-a-quick-example" />
+
+Huh, Django is pretty different. First thing, it creates `Client` without any arguments. This is Django's way of doing business. Things are not as explicit as in other frameworks. Same goes for database connection - you never handle session explicitly.
+
+## Test Client
+In the same way as in last post let's try to figure out how test client does the request. I will include only abbreviated snippets here but leave links to source code.
+
+```python compact
+class Client(ClientMixin, RequestFactory):
+
+    def get(self, path, headers=None, query_params=None, **extra):
+        """Request a response from the server using GET."""
+        self.extra = extra
+        self.headers = headers
+        response = super().get(path, ...)
+        return response
+```
+<Source path="django/test/client.py:1028" source="django" sources={sources} />
+
+After digging into `super().get()` we take a very brief stop in `RequestFactory`
+
+```python compact
+class RequestFactory:
+    """
+    Class that lets you create mock Request objects for use in testing.
+
+    ...
+
+    Once you have a request object you can pass it to any view function,
+    just as if that view had been hooked up using a URLconf.
+    """
+```
+<Source path="django/test/client.py:370" source="django" sources={sources} />
+
+Docstring itself gives us a first clue about a difference between tests clients. Look, `RequestFactory` is responsible for creating request object but not just some representation of HTTP request. **Once you have a request object you can pass it to any view function**! Object created by this factory is never meant to touch network or WSGI, unlike FastAPI's test client. It is meant to be passed directly to a view function. Let's see if that holds as we dig deeper.
+
+
+```python compact
+def get(
+    self, path, data=None, secure=False, *, headers=None, query_params=None, **extra
+):
+    """Construct a GET request."""
+    ...
+    return self.generic("GET", path, ...)
+
+def generic(self, method, path, headers=None, query_params=None, **extra):
+    """Construct an arbitrary HTTP request."""
+    parsed = urlsplit(str(path))  # path can be lazy
+    data = force_bytes(data, settings.DEFAULT_CHARSET)
+    r = {
+        "PATH_INFO": self._get_path(parsed),
+        "REQUEST_METHOD": method,
+        "SERVER_PORT": "443" if secure else "80",
+        "wsgi.url_scheme": "https" if secure else "http",
+    }
+    if data:
+        # handle data
+        ...
+
+    # Handle headers and query params and extra
+
+    return self.request(**r) # goes back to Client.request()
+```
+<Source path="django/test/client.py:633" source="django" sources={sources} />
+
+`r` dict, which stands for `request` contains keys resembling WSGI environ variables. But that doesn't mean request will go through WSGI protocol, Django may just use similar representation. So we need to go back to `Client.request()` to check what is going on there.
+
+```python compact
+def request(self, **request):
+    environ = self._base_environ(**request)
+
+    # handle signals to store information about render context and template
+
+    try:
+        response = self.handler(environ)
+
+    # Save the client and request that stimulated the response.
+    response.client = self
+    response.request = request
+
+    # Add any rendered template detail to the response.
+
+    response.json = partial(self._parse_json, response)
+    # Attach the ResolverMatch instance to the response.
+    urlconf = getattr(response.wsgi_request, "urlconf", None)
+    response.resolver_match = SimpleLazyObject(
+        lambda: resolve(request["PATH_INFO"], urlconf=urlconf),
+    )
+
+    return response
+```
+<Source path="django/test/client.py:1063" source="django" sources={sources} />
+
+We are getting somewhere. So `request` does 3 things.
+
+1. Builds `environ` which is WSGI environ. Look at `RequestFactory._base_environ` (<Source path="django/test/client.py:401" source="django" sources={sources} />) it just returns some base WSGI environ and updates it with `**kwargs`
+2. Passes request to some handler `response = self.handler(environ)`
+3. Enriches response object with some extra fields that might be handy to have in tests. I cut out the better part of this logic in the listing above.
+
+Our next step is `self.handler`.
+
+```python compact
+class Client(ClientMixin, RequestFactory):
+
+    def __init__(
+        self,
+        enforce_csrf_checks=False,
+        ...
+    ):
+        self.handler = ClientHandler(enforce_csrf_checks)
+        ...
+```
+<Source path="django/test/client.py:1057" source="django" sources={sources} />
+
+```python compact
+class ClientHandler(BaseHandler):
+
+    def __call__(self, environ):
+        # Set up middleware if needed. We couldn't do this earlier, because
+        # settings weren't available.
+        if self._middleware_chain is None:
+            self.load_middleware()
+
+        # handle request signal
+
+        request = WSGIRequest(environ)
+
+        # Request goes through middleware.
+        response = self.get_response(request)
+
+        # Attach the originating request to the response so that it could be
+        # later retrieved.
+        response.wsgi_request = request
+
+        return response
+```
+<Source path="django/test/client.py:169" source="django" sources={sources} />
+
+Client handler does:
+1. Creates middleware chain if not present. We will dive into what middleware is shortly.
+2. Creates `WSGIRequest` from WSGI environ dict. It is mostly plumbing. It really just creates a bit different representation of WSGI environ dict as object. But I encourage you to take a look at source code yourself (<Source path="django/core/handlers/wsgi.py:56" source="django" sources={sources} />).
+3. Calls `self.get_response()` with `WSGIRequest`. It will become obvious after understanding middleware.
+4. Enriches response object with info like request itself (most of that is cut out from listing).
+
+## Middleware
+As in the last post we took a detour to touch on WSGI/ASGI, in this post I'll try to get you up to speed on what middlewares are and how they work.
+
+You probably heard about middlewares in many other contexts, not only in Django. This is why I want to talk about that a bit more as this concept goes far beyond Django or even Python or webdev (but we will be talking only in context of web frameworks today).
+
+Since we are talking about Django today, let's steal code example from their docs.
+
+```python compact
+def simple_middleware(get_response):
+    # One-time configuration and initialization.
+
+    def middleware(request):
+        # Code to be executed for each request before
+        # the view (and later middleware) are called.
+
+        response = get_response(request)
+
+        # Code to be executed for each request/response after
+        # the view is called.
+
+        return response
+
+    return middleware
+```
+
+So middleware is a very simple but powerful idea. It allows you to modify request before passing to next middleware and response after next middleware returns a response. You can do something before and after next middleware is called. Wait, doesn't it remind you of something?
+
+```python compact
+def simple_middleware(get_response):
+    def middleware(request):
+        response = get_response(request)
+        return response
+
+    return middleware
+
+# vs
+
+def simple_decorator(fn):
+    def wrapper(*args, **kwargs):
+        return_value = fn(*args, **kwargs)
+        return return_value
+
+    return wrapper
+```
+
+Exactly! Middleware is really similar to decorator and you can think about it this way. I said this is a powerful concept. Middleware is a basic building block of most web frameworks out there! Let's explore some simple examples for middleware.
+
+
+There is always one last middleware that won't call next in the chain. This middleware will be responsible for handling request and probably routing. Although routing can be split to yet again middleware. Simple example:
+
+```python compact
+from views import get_users, create_user
+
+
+def routing_middleware(get_response):
+
+    ROUTING = {
+        ('GET', '/users'): get_users,
+        ('POST', '/users'): create_user,
+    }
+
+    def middleware(request):
+        view_handler = ROUTING.get((request.method, request.path))
+        if not view_handler:
+            raise HTTP404NotFound
+
+        return view_handler(request)
+
+    return middleware
+```
+
+Ever wonder how that works that even if your request handler raises an error server doesn't crash? Middleware.
+
+```python compact
+from views import get_users, create_user
+def error_middleware(get_response):
+
+    def middleware(request):
+        try:
+            response = get_response(request)
+            return response
+        except Exception:
+            return Response(500)
+
+    return middleware
+```
+
+Logging middleware?
+
+```python compact
+def logging_middleware(get_response):
+
+    def middleware(request):
+        response = get_response(request)
+
+        log.info(f'{request.method} {request.path}: {response.code}')
+
+        return response
+
+    return middleware
+```
+
+
+Auth middleware
+```python compact
+def auth_middleware(get_response):
+
+    def middleware(request):
+        user = decode_jwt_from_header(request.headers['Authorization'])
+        request.user = user
+
+        response = get_response(request)
+
+        return response
+
+    return middleware
+```
+
+Those are of course very simple examples but it shows what middleware can do. It can just log, can modify request, modify response or return completely new response. There are numerous examples of what middlewares are used for. Serialization, CORS, timeouts, logging.
+
+Examples above are built with some request and response objects with arbitrary fields. You can imagine WSGI/ASGI middlewares where request and response objects are known and not framework dependent. Those could be shared between most of the python web frameworks.
+
+One last thing to mention. Order of applied middlewares matters (same as order of decorators in python)
+
+```
+Middleware A request
+    Middleware B request
+        Middleware C request
+            Handle request
+        Middleware C response
+    Middleware B response
+Middleware A response
+```
+
+Look at how Django defines middleware for project:
+```python compact
+MIDDLEWARE = [
+    "django.middleware.security.SecurityMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.common.CommonMiddleware",
+    "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
+]
+```
+
+And this order makes sense. `SessionMiddleware` is responsible for getting session key from request and attaching `session` (<Source path="django/contrib/sessions/middleware.py:20" source="django" sources={sources} />) object to `request`. And what is stored in that session? User's id, among other things. `AuthenticationMiddleware` which is further down the stack expects session to be there (<Source path="django/contrib/auth/middleware.py:30" source="django" sources={sources} />) so it can transform user's id to `User` object and attach to `request` (<Source path="django/contrib/auth/middleware.py:38" source="django" sources={sources} />) so you can use it in your view. Neat.
+
+## Building the chain
+
+Let's look at slimmed down version of `load_middleware` function. I removed quite a few things to make it more readable. Most notably async support. In Django source code async support feels like an afterthought but this is not a critique. Django was written long before native async support came around. Even modern (recently written) code that has to handle both sync and async at the same time can get quite messy so I feel like it is more like best they could do than lack of attention.
+
+```python compact
+class BaseHandler:
+    def load_middleware(self, is_async=False):
+            """
+            Populate middleware lists from settings.MIDDLEWARE.
+            """
+
+            handler = self._get_response
+
+            for middleware_path in reversed(settings.MIDDLEWARE):
+                middleware = import_string(middleware_path)
+                handler = middleware(handler)
+
+            self._middleware_chain = handler
+```
+<Source path="django/core/handlers/base.py:21" source="django" sources={sources} />
+
+After all "extras" are removed it is pretty clear what is going on. We start with `self._get_response` and then going in reverse we wrap each middleware. Each middleware is a function that takes request, runs next middleware and returns a response. I want it to be clear so let's bring back simple example
+
+```python compact
+def simple_middleware(get_response):
+    def middleware(request):
+        response = get_response(request)
+        return response
+
+    return middleware
+```
+
+When we wrap `self._get_response` in first middleware we pass it to `simple_middleware` and it returns a function that will do its middleware stuff and run `self._get_response` to, well, get response. You can think of it like we end up with `self._get_response` that now also contains first middleware. And then we do the same with next middleware and so on.
+
+
+Why wrap in reverse? Remember how we defined middlewares earlier?
+
+```python compact
+MIDDLEWARE = [
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    ...
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+]
+```
+
+Further down the list we got middlewares that need info added to request object by previous middlewares (auth needs session). What we want is the most specific middlewares to be closer to `_get_response`
+```
+SessionMiddleware request
+    AuthenticationMiddleware request
+        self._get_response
+    AuthenticationMiddleware response
+SessionMiddleware response
+```
+
+This is why we have to go in reverse, wrap `_get_response` in `AuthenticationMiddleware` and then in `SessionMiddleware`. We would do the same with python decorators
+
+```python compact
+@SessionMiddleware
+@AuthenticationMiddleware
+def get_response(request):
+    ...
+```
+
+After running `load_middleware` we end up with `self._middleware_chain` populated. Middleware chain is a function, that takes request, goes through all middlewares so they can log/inspect/enrich/change request object, calls `get_response`, goes back through all middlewares so they can again, mess with response object before returning it.
+
+
+## Getting the response
+You probably can feel that I skipped something important like what `get_response` does? Seems pretty important when we're trying to find out how request and response are created. Again I'll slim it down to contain only crème de la crème.
+
+
+```python compact
+def _get_response(self, request):
+        """
+        Resolve and call the view, then apply view, exception, and
+        template_response middleware. This method is everything that happens
+        inside the request/response middleware.
+        """
+        response = None
+        callback, callback_args, callback_kwargs = self.resolve_request(request)
+
+        try:
+            response = callback(request, *callback_args, **callback_kwargs)
+        except Exception as e:
+            response = self.process_exception_by_middleware(e, request)
+            if response is None:
+                raise
+
+        return response
+```
+<Source path="django/core/handlers/base.py:176" source="django" sources={sources} />
+
+```python compact
+def resolve_request(self, request):
+        """
+        Retrieve/set the urlconf for the request. Return the view resolved,
+        with its args and kwargs.
+        """
+        resolver = get_resolver()
+
+        resolver_match = resolver.resolve(request.path_info)
+        request.resolver_match = resolver_match
+        return resolver_match
+```
+<Source path="django/core/handlers/base.py:302" source="django" sources={sources} />
+
+Remember our comment to `RequestFactory`, when we came to conclusion that request will never hit WSGI layer. Here we can see that `response = callback(request)` is a view call.
+
+We won't go deeper because we got pretty good idea what is going on here and it is starting to get a bit magical. So `_get_response` calls `resolve_request` to match request url to view function, calls this view with request object to get response.
+
+### Wrapping it all together
+
+Let's bring back test client for a second. I told you that `self.get_response(request)` will become obvious once we're done with middlewares. Let's go through Django's test client again now, when we have full picture of what is going on under the hood.
+
+```python compact
+class ClientHandler(BaseHandler):
+
+    def __call__(self, environ):
+        # Set up middleware if needed. We couldn't do this earlier, because
+        # settings weren't available.
+        if self._middleware_chain is None:
+            self.load_middleware()
+
+        # handle request signal
+
+        request = WSGIRequest(environ)
+
+        # Request goes through middleware.
+        response = self.get_response(request)
+
+        # Attach the originating request to the response so that it could be
+        # later retrieved.
+        response.wsgi_request = request
+
+        return response
+```
+<Source path="django/test/client.py:169" source="django" sources={sources} />
+
+First step is to create middleware chain if it doesn't exist. Create request object, and call `self.get_response(request)` to get response. You probably feel what `self.get_response(request)` does by now. Yes, it calls middleware chain it prepared a second ago.
+
+``` python
+def get_response(self, request):
+    """Return an HttpResponse object for the given HttpRequest."""
+    # Setup default url resolver for this thread
+    response = self._middleware_chain(request)
+
+    # error logging omitted
+
+    return response
+```
+<Source path="django/core/handlers/base.py:138" source="django" sources={sources} />
+
+Yep, that's it. One last thing I want you to notice is that test's `ClientHandler` inherits from `BaseHandler` which isn't test related. It is base Django request handler. That means a normal request would arrive, get handled by the WSGI application and after creating request object be passed to `BaseHandler`.
+
+Earlier we noticed that fields in request dict are basically the same as in WSGI environ. But there wasn't any place where we would see any `start_response()` known from WSGI. There we can see the biggest difference between Django's and FastAPI's test client. Django skips WSGI in tests. Its test client plugs in the place right after WSGI app handled request.
+
+<Callout type="info">
+WSGI applications normally receive a dictionary called `environ` plus a `start_response` callback. Go back to [part 1](/blog/test-client-python-tests-1#wsgi) for a refresher.
+</Callout>
+
+That is a huge shift! The way FastAPI approached test client doesn't rely on any of FastAPI's internal logic, only on the fact that it exposes ASGI interface. Django's test client is tied to into inner logic - it directly calls Django's internal request handler.
+
+```
+FastAPI:  Test → HTTP Client → ASGI App → Route → View
+Django:   Test → ClientHandler → Middleware → Route → View
+                (skips WSGI)
+```
+
+To tie it a bit to database transactions handling. Because Django's test client runs in the same process and thread as your test code, without any network/protocol boundary, the test and the view can share the same database connection. This is what makes Django's test transaction rollback possible — something we'll explore in part 3.
+
+## Summary
+
+Quite a long post, thanks for staying that long. Although we didn't yet arrive at answer how Django can clean its database between tests we explored very important concepts.
+
+Key takeaways:
+* middleware is basic building block of web framework
+* middlewares are similar to decorator in their behavior
+* Django test client plugs in the middle of request handling pipeline
+
+See you in part 3!
