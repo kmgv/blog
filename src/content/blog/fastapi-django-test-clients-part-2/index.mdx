@@ -1,13 +1,18 @@
 ---
-title: "Test client in python tests"
+title: "Test client in python tests part 2"
 tags: ["fastapi", "django", "testing", "python", "wsgi", "asgi"]
 authors: ["Maciek Sobczak"]
 description: "What is testing client and how one from Django is special"
-slug: "test-client-python-tests"
+slug: "test-client-python-tests-2"
 date: "2026-02-07"
 ---
 
 import Callout from "@/components/Callout.astro";
+import Source from "@/components/Source.astro";
+
+export const sources = {
+  django: { repo: "django/django", branch: "7c54fee" },
+};
 
 ---
 ## Last time on nbit
@@ -17,6 +22,7 @@ Let's start with 30 seconds summary from last post that will be relevant in this
 - FastAPI's test client uses normal http client to send request to application
 - Those requests are handled by ASGI application in different thread
 - This works identically to sending request over http using browser or `curl` - you have different database connection in test and application
+
 
 ## Where to start
 Same as the last time we will be digging in source code. What's a better place to start than looking at Django documentation about tests.
@@ -33,7 +39,7 @@ We'll skip docs with simple examples as those don't involve client. Let's cut to
 >>> response.content
 b'<!DOCTYPE html...'
 ```
-[source](https://docs.djangoproject.com/en/6.0/topics/testing/tools/#overview-and-a-quick-example)
+<Source source="web" path="https://docs.djangoproject.com/en/6.0/topics/testing/tools/#overview-and-a-quick-example" />
 
 Huh, Django is pretty different. First thing, it creates `Client` without any arguments. This is Django's way of doing business. Things are not as explicit as in other frameworks. Same goes for database connection - you never handle session explicitly.
 
@@ -50,7 +56,7 @@ class Client(ClientMixin, RequestFactory):
         response = super().get(path, ...)
         return response
 ```
-{/* source django/test/client.py:1028 */}
+<Source path="django/test/client.py:1028" source="django" sources={sources} />
 
 After digging into `super().get()` we take a very brief stop in `RequestFactory`
 
@@ -65,7 +71,7 @@ class RequestFactory:
     just as if that view had been hooked up using a URLconf.
     """
 ```
-{/* source django/test/client.py:370 */}
+<Source path="django/test/client.py:370" source="django" sources={sources} />
 
 Docstring itself gives us a first clue about a difference between tests clients. Look, `RequestFactory` is responsible for creating request object but not just some representation of HTTP request. **Once you have a request object you can pass it to any view function**! Object created by this factory is never meant to touch network or WSGI as FastAPI's one. It is meant to be passed directly to a view function. Let's see if that holds as we dig deeper.
 
@@ -96,7 +102,7 @@ def generic(self, method, path, headers=None, query_params=None, **extra):
 
     return self.request(**r) # goes back to Client.request()
 ```
-{/* source django/test/client.py:633 */}
+<Source path="django/test/client.py:633" source="django" sources={sources} />
 
 `r` dict, which stands for `request` contains keys resembling WSGI environ variables. But that doesn't mean request will go through WSGI protocol, Django may just use similar representation. So we need to go back to `Client.request()` to check what is going on there.
 
@@ -124,11 +130,11 @@ def request(self, **request):
 
     return response
 ```
-{/* source django/test/client.py:1063 */}
+<Source path="django/test/client.py:1063" source="django" sources={sources} />
 
 We are getting somewhere. So `request` does 3 things.
 
-1. Builds `environ` which is WSGI environ. Look at `RequestFactory._base_environ`  {/* source django/test/client.py:401 */} it just returns some base WSGI environ and updates it with `**kwargs`
+1. Builds `environ` which is WSGI environ. Look at `RequestFactory._base_environ` (<Source path="django/test/client.py:401" source="django" sources={sources} />) it just returns some base WSGI environ and updates it with `**kwargs`
 2. Passes request to some handler `response = self.handler(environ)`
 3. Enriches response object with some extra fields that might be handy to have in tests. I cut out  better part of this logic in listing above.
 
@@ -145,7 +151,7 @@ class Client(ClientMixin, RequestFactory):
         self.handler = ClientHandler(enforce_csrf_checks)
         ...
 ```
-{/* source django/test/client.py:1057 */}
+<Source path="django/test/client.py:1057" source="django" sources={sources} />
 
 ```python
 class ClientHandler(BaseHandler):
@@ -169,11 +175,11 @@ class ClientHandler(BaseHandler):
 
         return response
 ```
-{/* source django/test/client.py:169 */}
+<Source path="django/test/client.py:169" source="django" sources={sources} />
 
 Client handler does:
 1. creates middleware chain if not present. We will dive into what middlewares are shortly.
-2. creates `WSGIRequest` from WSGI environ dict. We won't spend time on that. It really just creates a bit different representation of WSGI environ dict as object. But I encourage you to take a look at source code yourself ({/* source django/core/handlers/wsgi.py:56 */}).
+2. creates `WSGIRequest` from WSGI environ dict. We won't spend time on that. It really just creates a bit different representation of WSGI environ dict as object. But I encourage you to take a look at source code yourself (<Source path="django/core/handlers/wsgi.py:56" source="django" sources={sources} />).
 3. calls `self.get_response()` with `WSGIRequest`. It will become obvious after understanding middlewares.
 4. enriches response object with info like request itself (most of that is cut out from listing).
 
@@ -324,7 +330,7 @@ MIDDLEWARE = [
 ]
 ```
 
-And this order makes sense. `SessionMiddleware` is responsible for getting session key from request and attaching `session` (django/contrib/sessions/middleware.py:20) object to `request`. And what is stored in that session? User's id, among other things. `AuthenticationMiddleware` which is further down the stack expects session to be there (django/contrib/auth/middleware.py:30) so it can transform user's id to `User` object and attach to `request` (django/contrib/auth/middleware.py:38) so you can use it in your view. Neat.
+And this order makes sense. `SessionMiddleware` is responsible for getting session key from request and attaching `session` (<Source path="django/contrib/sessions/middleware.py:20" source="django" sources={sources} />) object to `request`. And what is stored in that session? User's id, among other things. `AuthenticationMiddleware` which is further down the stack expects session to be there (<Source path="django/contrib/auth/middleware.py:30" source="django" sources={sources} />) so it can transform user's id to `User` object and attach to `request` (<Source path="django/contrib/auth/middleware.py:38" source="django" sources={sources} />) so you can use it in your view. Neat.
 
 ## Building the chain
 
@@ -345,7 +351,7 @@ class BaseHandler:
 
             self._middleware_chain = handler
 ```
-{/* source django/core/handlers/base.py:21 */}
+<Source path="django/core/handlers/base.py:21" source="django" sources={sources} />
 
 After all "extras" are removed it is pretty clear what is going on. We start with `self._get_response` and then going in reverse we wrap each middleware. Each middleware is a function that takes request, runs next middleware and returns a response. I want it to be clear so let's bring back simple example
 
@@ -415,7 +421,7 @@ def _get_response(self, request):
 
         return response
 ```
-{/* source django/core/handlers/base.py:176 */}
+<Source path="django/core/handlers/base.py:176" source="django" sources={sources} />
 
 ```python
 def resolve_request(self, request):
@@ -429,7 +435,7 @@ def resolve_request(self, request):
         request.resolver_match = resolver_match
         return resolver_match
 ```
-{/* source django/core/handlers/base.py:302 */}
+<Source path="django/core/handlers/base.py:302" source="django" sources={sources} />
 
 We won't go deeper because we got pretty good idea what is going on here and it is starting to get a bit magical. So `_get_response` calls `resolve_request` to match request url to view function, calls this view with request object to get response.
 
@@ -459,7 +465,7 @@ class ClientHandler(BaseHandler):
 
         return response
 ```
-{/* source django/test/client.py:169 */}
+<Source path="django/test/client.py:169" source="django" sources={sources} />
 
 First step is to create middleware chain if it doesn't exist. Create request object, and call `self.get_response(request)` to get response. You probably feel what `self.get_response(request)` does by now. Yes, it calls middleware chain it prepared a second ago.
 
@@ -473,7 +479,7 @@ def get_response(self, request):
 
     return response
 ```
-{/* source django/core/handlers/base.py:138 */}
+<Source path="django/core/handlers/base.py:138" source="django" sources={sources} />
 
 Yep, that's it. One last thing I want you to notice is that test's `ClientHandler` inherits from `BaseHandler` which isn't test related. It is base Django request handler. That means a normal request would arrive, get handled by WSGI application and after creating request object be passed to `BaseHandler`.
 
