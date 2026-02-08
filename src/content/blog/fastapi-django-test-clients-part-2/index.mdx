@@ -20,12 +20,12 @@ In the last part we looked into how test client works in FastAPI. Even though we
 
 Let's start with 30 seconds summary from last post that will be relevant in this one:
 - FastAPI's test client uses normal http client to send request to application
-- Those requests are handled by ASGI application in different thread
+- Those requests are handled by ASGI application in a different thread
 - This works identically to sending request over http using browser or `curl` - you have different database connection in test and application
 
 
 ## Where to start
-Same as the last time we will be digging in source code. What's a better place to start than looking at Django documentation about tests.
+Same as the last time we will be digging in source code. What's a better place to start than looking at Django documentation about tests?
 
 We'll skip docs with simple examples as those don't involve client. Let's cut to the chase then:
 
@@ -73,7 +73,7 @@ class RequestFactory:
 ```
 <Source path="django/test/client.py:370" source="django" sources={sources} />
 
-Docstring itself gives us a first clue about a difference between tests clients. Look, `RequestFactory` is responsible for creating request object but not just some representation of HTTP request. **Once you have a request object you can pass it to any view function**! Object created by this factory is never meant to touch network or WSGI as FastAPI's one. It is meant to be passed directly to a view function. Let's see if that holds as we dig deeper.
+Docstring itself gives us a first clue about a difference between tests clients. Look, `RequestFactory` is responsible for creating request object but not just some representation of HTTP request. **Once you have a request object you can pass it to any view function**! Object created by this factory is never meant to touch network or WSGI, unlike FastAPI's test client. It is meant to be passed directly to a view function. Let's see if that holds as we dig deeper.
 
 
 ```python compact
@@ -136,7 +136,7 @@ We are getting somewhere. So `request` does 3 things.
 
 1. Builds `environ` which is WSGI environ. Look at `RequestFactory._base_environ` (<Source path="django/test/client.py:401" source="django" sources={sources} />) it just returns some base WSGI environ and updates it with `**kwargs`
 2. Passes request to some handler `response = self.handler(environ)`
-3. Enriches response object with some extra fields that might be handy to have in tests. I cut out  better part of this logic in listing above.
+3. Enriches response object with some extra fields that might be handy to have in tests. I cut out the better part of this logic in the listing above.
 
 Our next step is `self.handler`.
 
@@ -178,10 +178,10 @@ class ClientHandler(BaseHandler):
 <Source path="django/test/client.py:169" source="django" sources={sources} />
 
 Client handler does:
-1. creates middleware chain if not present. We will dive into what middlewares are shortly.
-2. creates `WSGIRequest` from WSGI environ dict. We won't spend time on that. It really just creates a bit different representation of WSGI environ dict as object. But I encourage you to take a look at source code yourself (<Source path="django/core/handlers/wsgi.py:56" source="django" sources={sources} />).
-3. calls `self.get_response()` with `WSGIRequest`. It will become obvious after understanding middlewares.
-4. enriches response object with info like request itself (most of that is cut out from listing).
+1. Creates middleware chain if not present. We will dive into what middleware is shortly.
+2. Creates `WSGIRequest` from WSGI environ dict. We won't spend time on that. It really just creates a bit different representation of WSGI environ dict as object. But I encourage you to take a look at source code yourself (<Source path="django/core/handlers/wsgi.py:56" source="django" sources={sources} />).
+3. Calls `self.get_response()` with `WSGIRequest`. It will become obvious after understanding middleware.
+4. Enriches response object with info like request itself (most of that is cut out from listing).
 
 ## Middleware
 As in the last post we took a detour to touch on WSGI/ASGI, in this post I'll try to get you up to speed on what middlewares are and how they work.
@@ -228,7 +228,7 @@ def simple_decorator(fn):
     return wrapper
 ```
 
-Exactly! Middleware is really similar to decorator and you can think about it this way. I said this is a powerful concept. Middlewares are a basic building block of any (probably not true) web framework out there! Let's explore some simple examples for middleware.
+Exactly! Middleware is really similar to decorator and you can think about it this way. I said this is a powerful concept. Middleware is a basic building block of most web frameworks out there! Let's explore some simple examples for middleware.
 
 
 There is always one last middleware that won't call next in the chain. This middleware will be responsible for handling request and probably routing. Although routing can be split to yet again middleware. Simple example:
@@ -334,7 +334,7 @@ And this order makes sense. `SessionMiddleware` is responsible for getting sessi
 
 ## Building the chain
 
-Let's look at slimmed down version of `load_middleware` function. I removed quite a few things to make it more readable. Most notably async support. In Django source code async support feels like afterthought but this is not a critique. Django was written long before native async support came around. Even modern (recently written) code that has to handle both sync and async at the same time can get quite messy so I feel like it is more like best they could do than lack of attention.
+Let's look at slimmed down version of `load_middleware` function. I removed quite a few things to make it more readable. Most notably async support. In Django source code async support feels like an afterthought but this is not a critique. Django was written long before native async support came around. Even modern (recently written) code that has to handle both sync and async at the same time can get quite messy so I feel like it is more like best they could do than lack of attention.
 
 ```python compact
 class BaseHandler:
@@ -364,7 +364,7 @@ def simple_middleware(get_response):
     return middleware
 ```
 
-When we wrap `self._get_response` in first middleware we pass it to `simple_middleware` and it returns a function that will do its middleware stuff and run `self._get_response` to ekhm, you know, get response. You can think of it like we end up with `self._get_response` that now also contains first middleware. And then we do the same with next middleware and so on.
+When we wrap `self._get_response` in first middleware we pass it to `simple_middleware` and it returns a function that will do its middleware stuff and run `self._get_response` to, well, get response. You can think of it like we end up with `self._get_response` that now also contains first middleware. And then we do the same with next middleware and so on.
 
 
 Why wrap in reverse? Remember how we defined middlewares earlier?
@@ -437,6 +437,8 @@ def resolve_request(self, request):
 ```
 <Source path="django/core/handlers/base.py:302" source="django" sources={sources} />
 
+Remember our comment to `RequestFactory`, when we came to conclusion that request will never hit WSGI layer. Here we can see that `response = callback(request)` is a view call.
+
 We won't go deeper because we got pretty good idea what is going on here and it is starting to get a bit magical. So `_get_response` calls `resolve_request` to match request url to view function, calls this view with request object to get response.
 
 ### Wrapping it all together
@@ -481,13 +483,19 @@ def get_response(self, request):
 ```
 <Source path="django/core/handlers/base.py:138" source="django" sources={sources} />
 
-Yep, that's it. One last thing I want you to notice is that test's `ClientHandler` inherits from `BaseHandler` which isn't test related. It is base Django request handler. That means a normal request would arrive, get handled by WSGI application and after creating request object be passed to `BaseHandler`.
+Yep, that's it. One last thing I want you to notice is that test's `ClientHandler` inherits from `BaseHandler` which isn't test related. It is base Django request handler. That means a normal request would arrive, get handled by the WSGI application and after creating request object be passed to `BaseHandler`.
 
-Earlier we noticed that fields in request dict are basically the same as in WSGI environ. But there wasn't any place where we would see any `start_response()` known from WSGI. There we can see biggest difference between Django's and FastAPI's test client. Django skips WSGI in tests. Its test client plugs in the place right after WSGI app handled request.
+Earlier we noticed that fields in request dict are basically the same as in WSGI environ. But there wasn't any place where we would see any `start_response()` known from WSGI. There we can see the biggest difference between Django's and FastAPI's test client. Django skips WSGI in tests. Its test client plugs in the place right after WSGI app handled request.
 
-That is huge shift! The way FastAPI approached test client doesn't rely on any of FastAPI's internal logic, only on fact that it expose ASGI interface. Django's test client is melded into inner logic of how Django processes requests.
+That is a huge shift! The way FastAPI approached test client doesn't rely on any of FastAPI's internal logic, only on the fact that it exposes ASGI interface. Django's test client is melded into inner logic of how Django processes requests.
 
-To tie it a bit to database transactions handling. In FastAPI I mentioned that both tests and application logic is separate, split by ASGI interface. This is why we get different database session/connection in tests and application. Such separation, restriction doesn't exist in Django.
+```
+FastAPI:  Test → HTTP Client → ASGI App → Route → View
+Django:   Test → ClientHandler → Middleware → Route → View
+                (skips WSGI)
+```
+
+To tie it a bit to database transactions handling. Because Django's test client runs in the same process and thread as your test code, without any network/protocol boundary, the test and the view can share the same database connection. This is what makes Django's test transaction rollback possible — something we'll explore in part 3.
 
 ## Summary
 
