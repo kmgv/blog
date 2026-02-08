@@ -23,6 +23,10 @@ Let's start with 30 seconds summary from last post that will be relevant in this
 - Those requests are handled by ASGI application in a different thread
 - This works identically to sending request over http using browser or `curl` - you have different database connection in test and application
 
+Post will be long so **TL;DR**
+
+Django’s test client bypasses the WSGI server and calls Django’s internal request handler directly. That single design decision makes it much easier for Django to DB connections across tests and application.
+
 
 ## Where to start
 Same as the last time we will be digging in source code. What's a better place to start than looking at Django documentation about tests?
@@ -179,7 +183,7 @@ class ClientHandler(BaseHandler):
 
 Client handler does:
 1. Creates middleware chain if not present. We will dive into what middleware is shortly.
-2. Creates `WSGIRequest` from WSGI environ dict. We won't spend time on that. It really just creates a bit different representation of WSGI environ dict as object. But I encourage you to take a look at source code yourself (<Source path="django/core/handlers/wsgi.py:56" source="django" sources={sources} />).
+2. Creates `WSGIRequest` from WSGI environ dict. It is mostly plumbing. It really just creates a bit different representation of WSGI environ dict as object. But I encourage you to take a look at source code yourself (<Source path="django/core/handlers/wsgi.py:56" source="django" sources={sources} />).
 3. Calls `self.get_response()` with `WSGIRequest`. It will become obvious after understanding middleware.
 4. Enriches response object with info like request itself (most of that is cut out from listing).
 
@@ -487,7 +491,11 @@ Yep, that's it. One last thing I want you to notice is that test's `ClientHandle
 
 Earlier we noticed that fields in request dict are basically the same as in WSGI environ. But there wasn't any place where we would see any `start_response()` known from WSGI. There we can see the biggest difference between Django's and FastAPI's test client. Django skips WSGI in tests. Its test client plugs in the place right after WSGI app handled request.
 
-That is a huge shift! The way FastAPI approached test client doesn't rely on any of FastAPI's internal logic, only on the fact that it exposes ASGI interface. Django's test client is melded into inner logic of how Django processes requests.
+<Callout type="info">
+WSGI applications normally receive a dictionary called `environ` plus a `start_response` callback. Go back to [part 1](/blog/test-client-python-tests-1#wsgi) for a refresher.
+</Callout>
+
+That is a huge shift! The way FastAPI approached test client doesn't rely on any of FastAPI's internal logic, only on the fact that it exposes ASGI interface. Django's test client is tied to into inner logic - it directly calls Django's internal request handler.
 
 ```
 FastAPI:  Test → HTTP Client → ASGI App → Route → View
