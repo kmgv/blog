@@ -1,0 +1,489 @@
+---
+title: "Database isolation in tests part 3"
+tags: ["fastapi", "django", "testing", "python", "wsgi", "asgi"]
+authors: ["Maciek Sobczak"]
+description: "How django handles database transaction in tests?"
+slug: "test-client-python-tests-3"
+date: "2026-02-14"
+---
+
+import Callout from "@/components/Callout.astro";
+import Source from "@/components/Source.astro";
+
+export const sources = {
+  django: { repo: "django/django", branch: "7c54fee" },
+};
+
+---
+## Database isolation in Django's tests
+
+It this post we'll take a look at how Django handles tests insolation. Wait, handles what? Isolation basically means that changes from one test doesn't leak into another, so you know, just a fancy word for something we've figuring out in last 2 parts. Same as in the [last part](/blog/test-client-python-tests-2), all cited source code will be modified to contain only important parts.
+
+Important piece of knowledge is what database transaction is. I'll do a very quick recap, but for more info you can go back to [post abut SQLAlchemy sessions](/blog/sqlalchemy-sessions). Also in this post we will assume database we use supports transactions and savepoints. DBs like postgres, mariadb, mssql all supports both.
+
+Part 1: [click](/blog/test-client-python-tests-1)
+Part 2: [click](/blog/test-client-python-tests-2)
+
+## Transaction, rollback
+
+Transaction are SQL specific, so it is a mechanism provided by database, not by Django, SQLALchemy or any other python package. Transaction is like a bag for queries. At the end of transaction we can save all changes or discard them. The most important of that is all actions either succeeds, fails or are discarded altogether. Only after transaction is committed (saved) data is saved to the database.
+
+Let me bring back example from previous post
+```sql compact
+BEGIN; -- transaction starts with BEGIN
+-- all the queries you run are part of the transaction
+SELECT * FROM users WHERE id = 1;
+
+INSERT INTO orders (customer_id, order_date)
+VAULES (1, NOW()) RETURNING id;
+
+INSERT INTO order_items (order_id, product_id, quantity)
+VALUES (1, 101, 2);
+
+-- imagine calling an external service here
+-- ROLLBACK transaction if something goes wrong.
+
+UPDATE inventory SET stock = stock - 2 WHERE product_id = 101;
+
+COMMIT; -- transaction ends with COMMIT or ROLLBACK
+```
+<Source source="web" path="/blog/sqlalchemy-sessions#what-is-a-transaction-then" />
+
+
+## Savepoints
+
+Transaction savepoints are marks in current transaction that we can rollback to. For example in case of error.
+
+```sql compact
+BEGIN;
+    INSERT INTO table1 VALUES (1);
+    SAVEPOINT my_savepoint;
+    INSERT INTO table1 VALUES (2);
+    ROLLBACK TO SAVEPOINT my_savepoint;
+    INSERT INTO table1 VALUES (3);
+COMMIT;
+
+BEGIN;
+    INSERT INTO table1 VALUES (3);
+    SAVEPOINT my_savepoint;
+    INSERT INTO table1 VALUES (4);
+    RELEASE SAVEPOINT my_savepoint; -- savepoint can be destroyed
+COMMIT;
+```
+<Source source="web" path="https://www.postgresql.org/docs/current/sql-savepoint.html" />
+
+One thing important to notice, savepoints don't give us ability to commit multiple times - `COMMIT` commits whole session, not the last savepoint.
+
+
+## Django's TestCase
+
+It is always the hardest to take a first step, right? Let me help you then. Why not the Django testing docs? This is the first code we stumble upon.
+
+```python compact
+from django.test import TestCase
+from myapp.models import Animal
+
+
+class AnimalTestCase(TestCase):
+    def setUp(self):
+        Animal.objects.create(name="lion", sound="roar")
+        Animal.objects.create(name="cat", sound="meow")
+
+    def test_animals_can_speak(self):
+        """Animals that can speak are correctly identified"""
+        lion = Animal.objects.get(name="lion")
+        cat = Animal.objects.get(name="cat")
+        self.assertEqual(lion.speak(), 'The lion says "roar"')
+        self.assertEqual(cat.speak(), 'The cat says "meow"')
+```
+<Source source="web" path="https://docs.djangoproject.com/en/6.0/topics/testing/overview/#writing-tests" />
+
+How do we know this is a good place to start? Look this test creates some database entries in setup and have access to then in test. We know that Django cleans up database between every test, and there no other setup required mentioned by docs to all "magic" had to be in that `TestClass`.
+
+As we delve magic world on django internal we have to address few thing first so we don't feel lost later.
+
+## TestCase, setUp and tearDown
+
+When looking at Django test case we can clearly see that it is based on Python's `unittest` package. Quick recap (or take a look in <Source source="web" path="https://docs.python.org/3/library/unittest.html" link="docs" />)
+
+**TestCase** - used for aggregating multiple tests to one test case
+**setUpClass()** - classmethod that runs once before all test in the test case
+**TearDownClass()** - classmethod that runs once after all test in the test case
+**setUp()** - method that runs before every test
+**TearDown()** - method that runs after every test
+
+Looking at example above, `setUp` method is available for a developer and you don't have to call `super()` to trigger some extra logic. It looks like you have full control of what happens before and after test. It seems impossible for this example to work because there is no place it can clean db. But it does.
+
+```python compact
+class AnimalTestCase(TestCase):
+    def setUp(self):
+        Animal.objects.create(name="lion", sound="roar")
+
+    def test_animal_count1(self):
+        Animal.objects.create(name="cat", sound="meow")
+        self.assertEqual(Animal.objects.count(), 2)
+
+    def test_animal_count2(self):
+        Animal.objects.create(name="cat", sound="meow")
+        self.assertEqual(Animal.objects.count(), 2)
+```
+
+```bash
+Found 2 test(s).
+..
+----------------------------------------------------------------------
+Ran 2 tests in 0.004s
+
+OK
+```
+
+There's to be some other mechanism that allows for extra logic before `setUp()` and after `tearDown()`. If we go up inheritance tree to SimpleTestCase we'll find it overwrites `__call__` function.
+
+```
+ unittest.TestCase
+    └── SimpleTestCase
+        └── TransactionTestCase
+            └── TestCase
+```
+
+```python compact
+def __call__(self, result=None):
+    """
+    Wrapper around default __call__ method to perform common Django test
+    set up. This means that user-defined TestCases aren't required to
+    include a call to super().setUp().
+    """
+    self._setup_and_call(result)
+```
+<Source path="django/test/testcases.py:308" source="django" sources={sources} />
+
+```python compact
+def _setup_and_call(self, result, debug=False):
+    """
+    Perform the following in order: pre-setup, run test, post-teardown
+    """
+   self._pre_setup()
+
+    if debug:
+        super().debug()
+    else:
+        super().__call__(result)
+
+    self._post_teardown()
+```
+<Source path="django/test/testcases.py:338" source="django" sources={sources} />
+
+So django overwrites `__call__` to inject `_pre_setup` and `_post_teardown` methods you it's own use so you can use `setUp` and `tearDown` yourself without calling `super()`. Thats very neat!
+
+Some of you may ask, ok but I still don't see how this logic is run for each test, not once for whole suite. Well, we are getting to far away from main topic I'll send you back to the <Source source="web" path="https://docs.python.org/3/library/unittest.html#unittest.TestCase.run" link="docs" /> but provide very oversimplified answer.
+
+`TestCase.__call__(result=None)` runs one test, and returns result that is passed to next test.
+```python compact
+result = None
+for test_name in TestCase:
+    test_case = TestCase(test_name)
+    result = test_case(result)
+
+return result
+```
+This is huge oversimplification and not how things works under the hood, but important thing is test case instance is called once per test, not per test case.
+
+## How django cleans database up after each test?
+
+This is what we've all been waiting for. Before we dive deep into logic quick reminder:
+
+* database transaction in a bag for SQL queries which results are visible inside current transaction and saved or discarded at the end
+* savepoint allows us rollback (discard) only a part of transaction
+* thanks to architecture of Django and it's test client tests and application can and does share same database transaction
+* in django fixtures are extra data loaded to database before tests. Used for populating db with test setup like constants values or user account used in all tests.
+
+### Class setup and teardown.
+
+Lets start with `TestCase` to check if does some setup for whole test case.
+
+```python compact
+class TestCase(TransactionTestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+
+        cls.cls_atomics = cls._enter_atomics()
+
+        if cls.fixtures:
+            for db_name in cls._databases_names(include_mirrors=False):
+                try:
+                    call_command("loaddata", *cls.fixtures, verbosity=0, database=db_name)
+                except Exception:
+                    cls._rollback_atomics(cls.cls_atomics)
+                    raise
+
+        # omitted: test data setup, and TestData wrapper
+```
+<Source path="django/test/testcases.py:1418" source="django" sources={sources} />
+
+```python compact
+class TestCase(TransactionTestCase):
+
+    @classmethod
+    def _enter_atomics(cls):
+        """Open atomic blocks for multiple databases."""
+        atomics = {}
+        for db_name in cls._databases_names():
+            atomic = transaction.atomic(using=db_name)
+            atomic._from_testcase = True
+            atomic.__enter__()
+            atomics[db_name] = atomic
+        return atomics
+```
+<Source path="django/test/testcases.py:1391" source="django" sources={sources} />
+
+Django uses `@transaction.atomic` (<Source source="web" path="https://docs.djangoproject.com/en/6.0/topics/db/transactions/" link="docs" />) decorator to wrap piece of code in transaction. `setUpClass` creates same `atomic` instance (although not used as decorator). **So each test runs inside a transaction!** Keep in mind that after calling `_enter_atomics` it loads fixtures.
+
+So if `setUpClass` starts transaction, teardown should close it. Lets check that quickly.
+
+```python compact
+class TestCase(TransactionTestCase):
+
+    @classmethod
+    def tearDownClass(cls):
+        cls._rollback_atomics(cls.cls_atomics)
+            for conn in connections.all(initialized_only=True):
+                conn.close()
+        super().tearDownClass()
+```
+<Source path="django/test/testcases.py:1450" source="django" sources={sources} />
+
+```python compact
+class TestCase(TransactionTestCase):
+
+    @classmethod
+    def _rollback_atomics(cls, atomics):
+        """Rollback atomic blocks opened by the previous method."""
+        for db_name in reversed(cls._databases_names()):
+            transaction.set_rollback(True, using=db_name)
+            atomics[db_name].__exit__(None, None, None)
+```
+<Source path="django/test/testcases.py:1402" source="django" sources={sources} />
+
+Yes! It marks transaction to rollback exists atomic that was set up in `setUpClass`. Let's sum up what is going on in `TestCase` so far:
+
+1. `setUpClass` starts transaction for whole test case. Keeps related `Atomic` in `cls.atomics`.
+2. loads fixures
+3. runs tests
+4. rolls back transaction created for whole test case
+
+### \_pre_setup and \_post_teardown
+
+We also know there is extra per-test logic inside on `_pre_setup` and `_post_teardown`. Lets check it.
+
+```python compact
+class TransactionTestCase(SimpleTestCase):  # is parent of TestCase
+
+    @classmethod
+    def _pre_setup(cls):
+        """
+        Perform pre-test setup:
+        * If the class has a 'fixtures' attribute, install those fixtures.
+        """
+        super()._pre_setup()
+        # omitted: set installed apps
+        try:
+            cls._fixture_setup()
+        except Exception:
+            # omitted: unset installed apps
+            raise
+
+        # omitted: clear query log
+```
+<Source path="django/test/testcases.py:1145" source="django" sources={sources} />
+
+```python compact
+class TestCase(TransactionTestCase):
+
+    @classmethod
+    def _fixture_setup(cls):
+        # omitted: handling lack of transaction support
+
+        cls.atomics = cls._enter_atomics()
+
+        # omitted: handling lack of savepoints support
+```
+<Source path="django/test/testcases.py:1470" source="django" sources={sources} />
+
+```python compact
+class TestCase(TransactionTestCase):
+
+    def _fixture_teardown(self):
+        # omitted: handling lack of transaction support
+        # omitted: constraints check
+
+        self._rollback_atomics(self.atomics)
+
+```
+<Source path="django/test/testcases.py:1491" source="django" sources={sources} />
+
+```python compact
+class TransactionTestCase(SimpleTestCase):  # is parent of TestCase
+
+    def _post_teardown(self):
+        self._fixture_teardown()
+        super()._post_teardown()
+
+        # omitted: close db connections
+        # omitted: handle installed apps
+```
+<Source path="django/test/testcases.py:1491" source="django" sources={sources} />
+
+As we can see pe-test logic is really similar to per-test case logic. Only difference is we don't load fixtures every test, which makes sense. We have to look at `Atomic` implementation.
+
+## Django's Atomic
+
+I have to address few things now. First being `Django's Atomic` sounds like crossover between Tarantino's movie and Fallout - 100% would watch. Second is we are digging scarily deep inside Django internals. I remember myself using `@transaction.atomic` few years back and thinking "oh my, I don't even want to think how complicated it is under the hood. Hope it doesn't break some day, because it would take me weeks to wrap my head around that". Turns out, I couldn't further from the truth.
+
+Most for developer probably never had to think about that, but Django's default behavior is autocommit (<Source source="web" path="https://docs.djangoproject.com/en/6.0/topics/db/transactions/#django-s-default-transaction-behavior" />). What that means? Without using `@transaction.atomic` you get experience similar to using you database cli. Each query resulting in changes is immediately saved to DB without ability to undo. Remember last time you updated to many rows because you forgot `WHERE` clause? Yeah, that behavior.
+
+If you're not interested at looking at source code anymore, docs has explanation good enough to understand this double `__enter__` and `__exit__`. Here: <Source source="web" path="https://docs.djangoproject.com/en/6.0/topics/db/transactions/#django-s-default-transaction-behavior" link="it is pretty short"/>.
+
+
+### Deep dive
+
+All logic resides <Source path="django/db/transaction.py:1" source="django" sources={sources} link="here" />. Lets start from the top, there are bunch of function, and are pretty self explanatory:
+
+**get_connection** - gets underlying database connection object
+**get|set_autocommit** - get/set autocommit behavior we talks about minute ago
+**commit** - calls commit
+**rollback** - calls rollback
+**savepoint** - creates savepoint in transaction
+**savepoint_rollback** - rollback to savepoint
+**savepoint_commit** - releases savepoint
+**set_rollback** - marks db connection (transaction) for rollback
+
+```python compact
+class Atomic(ContextDecorator):
+
+    def __enter__(self):
+        connection = get_connection(self.using)
+        # omitted: durable atomics
+
+        if not connection.in_atomic_block:
+            # Reset state when entering an outermost atomic block.
+            connection.commit_on_exit = True
+            connection.needs_rollback = False
+            # omitted: connection's autcommit = false
+
+        # omitted: need rollback logic
+        if connection.in_atomic_block:
+            sid = connection.savepoint()
+            connection.savepoint_ids.append(sid)
+        else:
+            connection.set_autocommit(
+                False, force_begin_transaction_with_broken_autocommit=True
+            )
+            connection.in_atomic_block = True
+
+        # omitted: durable atomics
+```
+<Source path="django/db/transaction.py:182" source="django" sources={sources} />
+
+If we are inside first `Atomic` context manager:
+
+1. mark to commit on exit and don't roll back
+2. set connection autocommit to `False` and mark we are in atomic block
+
+Next time we use context manager or `__enter__` out connection already is maked with `in_atomic_block`, so:
+1. append `Atomic` instance to `connection.atomic_blocks`
+
+There is no explicit `BEGIN` anywhere. This is because python database drivers start transaction automatically if not in autocommit mode (<Source source="web" path="https://www.psycopg.org/psycopg3/docs/basic/transactions.html" link="Docs for postgres driver"/>)
+
+We have pretty good grasp what happens when we enter `Atomic`.
+
+```python compact
+class Atomic(ContextDecorator):
+    def __exit__(self, exc_type, exc_value, traceback):
+        connection = get_connection(self.using)
+
+        # omitted: durable atomics
+        # omitted: all error handling
+
+        # if we don't have any savepoint, we are exiting whole transaction
+        if connection.savepoint_ids:
+            sid = connection.savepoint_ids.pop()
+        else:
+            connection.in_atomic_block = False
+
+        if not connection.in_atomic_block:
+            if connection.needs_rollback:
+                connection.rollback()
+            else:
+                connection.commit()
+        else:
+            if connection.needs_rollback:
+                connection.needs_rollback = False
+                if sid is None:
+                    connection.needs_rollback = True
+                else:
+                    connection.savepoint_rollback(sid)
+                    connection.savepoint_commit(sid)
+            else:
+                if sid is not None:
+                    connection.savepoint_commit(sid)
+
+        if not connection.in_atomic_block:
+            connection.set_autocommit(True)
+
+
+```
+<Source path="django/db/transaction.py:224" source="django" sources={sources} />
+
+I heavy redacted source code so it is easier to follow. Lets sum it up
+
+1. If we don't have any savepoints, we mark connect as no longer in atomic block and either commit or roll it back
+2. Else, if connection in marked to rollback we rollback to the savepoint
+3. If no longer in atomic block, set autocommit back to `True` so further queries are not wrapped in transaction
+
+What is this `savepoint_commit`? It just runs `RELEASE TO SAVEPOINT <savepoint_name>` and deletes savepoint. (<Source path="django/db/backends/base/operations.py:443" source="django" sources={sources} />).
+
+So pretty much arrived at what Django documentation says. That was pretty intensive, I think we need summary of of `Atomic` works.
+
+```python compact
+with transaction.atomic():  # outer atomic
+    # set connection's autocommit to False
+    # implicitly start a new transaction
+    ...
+
+    with transaction.atomic(): # inner atomic block
+        # create a savepoint
+        ...
+
+    # exit inner atomic block, rollback or commit savepoint
+
+# exit outer atomic, rollback or commit transaction
+# set connection's autocommit to True
+```
+
+## Tying it all together
+
+We have all pieces in place to fully understand how Django cleans database between tests.
+
+1. When `TestCase` sets up test case it creates new transaction by entering `transaction.atomic` and loads fixtures
+2. Before each test `TestCase` enters `transaction.atomic` again, to create savepoint in transaction
+3. After each test `TestCase` marks transaction to rollback and exits `transaction.atomic`. It rolls back the savepoint and thus cleans all changes make during test.
+4. After All tests `TestCase` exits  `transaction.atomic` and rolls back transaction started during test case setup. It cleans loaded fixtures.
+
+This is all possible because database connection is shared across tests, view functions and any other place. Also `transaction.atomic` can be nested with committing or rolling back whole session - just a savepoint. Most of developers probably never explicitly committed transaction in Django. As you can see there multiple architecture decisions, that allowed to create abstractions to seamlessly deliver database cleanup by wrapping it in transaction. Fact that ORM is integral part of whole framework helps immensely to deliver such solution that work out of the box.
+
+It is ideal, best solution? Not really. This approach won't let you test any behaviors related to committing transaction. For this purpose there is Django provides <Source source="web" path="https://docs.djangoproject.com/en/6.0/topics/testing/tools/#django.test.TransactionTestCase" link="TransactionTestCase"/> which uses different mechanism for cleanup. You can also argue by using `TestCase` you test different behavior then in production. I would personally agree, but this approach works for thousands of developers so it seems this is pretty sane default.
+
+## Summary
+
+If you are still here - thank you! That wasn't easy.
+
+You probably noticed that I bluntly stated that database connection is shared everywhere in Django and never show that explicitly? Well, this is another journey. But we brushed against it when we looked at <Source path="django/db/transaction.py:1" source="django" sources={sources} link="atomic" /> source code. It gets connection objects from global `django.db.connections`. But for now I'll leave that. You can take a shot and dig into source yourself.
+
+Now we have pretty good insight on how Django how django manager database transactions in tests. We also now understand that many pieces has to fall in right places to enable transaction wrapping in tests. Even will all that this solution doesn't cover everything.
+
+In next part we will look at what options we have with FastAPI and SQLAlchemy and do some benchmarks. Don't worry, we are not leaving `TransactionTestCase` for good as we will do though it's cleanup mechanisms in relation to other frameworks.
+
+
+

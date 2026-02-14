@@ -5,6 +5,7 @@ date: "2025-04-13"
 ---
 
 import Callout from "@/components/Callout.astro";
+import Source from '@/componsen'
 
 ---
 ## You're probably using them wrong. Maybe. Probably.
@@ -60,6 +61,7 @@ UPDATE inventory SET stock = stock - 2 WHERE product_id = 101;
 
 COMMIT; -- transaction ends with COMMIT or ROLLBACK
 ```
+<sou>
 
 So a SQL transaction is a set of queries whose results are saved or discarded (`COMMIT` or `ROLLBACK`) together.
 

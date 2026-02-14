@@ -15,10 +15,12 @@ if (source === "web") {
   const config = sources![source];
 
   const [filePath, lineNumber] = path.includes(":")
-    ? [path.slice(0, path.lastIndexOf(":")), path.slice(path.lastIndexOf(":") + 1)]
+    ? [
+        path.slice(0, path.lastIndexOf(":")),
+        path.slice(path.lastIndexOf(":") + 1),
+      ]
     : [path, undefined];
-
-  url = lineNumber
+  w = url = lineNumber
     ? `https://github.com/${config.repo}/blob/${config.branch}/${filePath}#L${lineNumber}`
     : `https://github.com/${config.repo}/blob/${config.branch}/${filePath}`;
 }
