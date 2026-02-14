@@ -48,7 +48,7 @@ BEGIN; -- transaction starts with BEGIN
 SELECT * FROM users WHERE id = 1;
 
 INSERT INTO orders (customer_id, order_date)
-VAULES (1, NOW()) RETURNING id;
+VALUES (1, NOW()) RETURNING id;
 
 INSERT INTO order_items (order_id, product_id, quantity)
 VALUES (1, 101, 2);
