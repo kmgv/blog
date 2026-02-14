@@ -20,7 +20,7 @@ if (source === "web") {
         path.slice(path.lastIndexOf(":") + 1),
       ]
     : [path, undefined];
-  w = url = lineNumber
+  url = lineNumber
     ? `https://github.com/${config.repo}/blob/${config.branch}/${filePath}#L${lineNumber}`
     : `https://github.com/${config.repo}/blob/${config.branch}/${filePath}`;
 }
