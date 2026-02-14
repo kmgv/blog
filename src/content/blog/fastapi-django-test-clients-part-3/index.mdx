@@ -173,9 +173,9 @@ def _setup_and_call(self, result, debug=False):
 ```
 <Source path="django/test/testcases.py:338" source="django" sources={sources} />
 
-So django overwrites `__call__` to inject `_pre_setup` and `_post_teardown` methods you it's own use so you can use `setUp` and `tearDown` yourself without calling `super()`. Thats very neat!
+So django overwrites `__call__`  to inject `_pre_setup` and `_post_teardown` methods you it's own use so you can use `setUp` and `tearDown` yourself without calling `super()`. Thats very neat!
 
-Some of you may say, "ok but I still don't see how this logic is run for each test, not once for whole suite". Well, we are getting too far away from main topic. I'll send you back to the <Source source="web" path="https://docs.python.org/3/library/unittest.html#unittest.TestCase.run" link="docs" /> but also provide very oversimplified answer.
+But why `__call__`? What it gives us? Also it is not really clear how this logic in run for every test, not just once the test case. In depth explanation will take us away to far from the main topic. Let's keep it very simple, even oversimplified. You can run test by calling test case instance.
 
 `TestCase.__call__(result=None)` runs one test, and returns result that is passed to next test.
 ```python compact
@@ -186,7 +186,9 @@ for test_name in TestCase.get_all_test_names():
 
 return result
 ```
-This is huge oversimplification and not how things works under the hood, but important thing is test case instance is called once per test, not per test case.
+Again, this is huge oversimplification and not how things works under the hood, but important thing to remember is test case instance is called once per test, not per test case.
+
+After you're finished with this post I encourage you to look at unittest <Source source="web" path="https://docs.python.org/3/library/unittest.html" link="docs" /> for more info.
 
 ## How django cleans database up after each test?
 
@@ -418,17 +420,9 @@ class Atomic(ContextDecorator):
                 connection.rollback()
             else:
                 connection.commit()
-        else:
+        else: # still in atomic block
             if connection.needs_rollback:
-                connection.needs_rollback = False
-                if sid is None:
-                    connection.needs_rollback = True
-                else:
-                    connection.savepoint_rollback(sid)
-                    connection.savepoint_commit(sid)
-            else:
-                if sid is not None:
-                    connection.savepoint_commit(sid)
+                connection.savepoint_rollback(sid)
 
         if not connection.in_atomic_block:
             connection.set_autocommit(True)
@@ -443,8 +437,6 @@ I heavy redacted source code so it is easier to follow. Lets sum it up
 2. If we are not longer in atomic block, we either commit or rollback whole transaction.
 3. Else, if connection in marked to rollback we rollback only to the last savepoint.
 4. If no longer in atomic block, set autocommit back to `True` so further queries are not wrapped in transaction anymore.
-
-What is this `savepoint_commit`? It just runs `RELEASE TO SAVEPOINT <savepoint_name>` and deletes savepoint (<Source path="django/db/backends/base/operations.py:443" source="django" sources={sources} />).
 
 So pretty much arrived at what Django documentation says. That was pretty intensive, I think we need summary of `Atomic` inside `Atomic`:
 
@@ -485,7 +477,7 @@ If you are still here - thank you! That wasn't easy.
 
 You probably noticed that I bluntly stated that database connection is shared everywhere in Django and never show that explicitly? Well, this is another journey. But we brushed against it when we looked at <Source path="django/db/transaction.py:1" source="django" sources={sources} link="atomic" /> source code. It gets connection objects from global `django.db.connections`. But for now I'll leave that. You can take a shot and dig into source yourself.
 
-Now we have pretty good insight on how Django how django manager database transactions in tests. We also now understand that many pieces has to fall in right places to enable transaction wrapping in tests. Even with all that, this solution it perfect.
+Now we have pretty good insight on how Django how django manager database transactions in tests. We also now understand that many pieces has to fall in right places to enable transaction wrapping in tests. Even with all that, this solution isn't perfect.
 
 In next part we will look at what options we have with FastAPI and SQLAlchemy and do some benchmarks. We'll also show why Django's approach is not easily to recreate there. Don't worry, we are not leaving `TransactionTestCase` for good. We will do through it's cleanup mechanisms in relation to other frameworks.
 
