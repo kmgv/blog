@@ -240,7 +240,7 @@ class TestCase(TransactionTestCase):
 ```
 <Source path="django/test/testcases.py:1391" source="django" sources={sources} />
 
-Django uses `@transaction.atomic` (<Source source="web" path="https://docs.djangoproject.com/en/6.0/topics/db/transactions/" link="docs" />) decorator to wrap piece of code in transaction. `setUpClass()` creates instance the same `atomic` class (although not used as decorator). **So each test runs inside a transaction!** Keep in mind that it loads fixtures after calling `_enter_atomics()` .
+Django uses `@transaction.atomic` (<Source source="web" path="https://docs.djangoproject.com/en/6.0/topics/db/transactions/" link="docs" />) decorator to wrap piece of code in transaction. `setUpClass()` creates an instance of the same `atomic` class (although not used as decorator). **So each test runs inside a transaction!** Keep in mind that it loads fixtures after calling `_enter_atomics()` .
 
 So if `setUpClass()` starts transaction, teardown should close it. Let's check that quickly.
 
@@ -467,11 +467,20 @@ We have all pieces in place to fully understand how Django cleans database betwe
 3. After each test `TestCase` marks transaction to rollback and exits `transaction.atomic`. It rolls back transaction to the savepoint before test and thus cleans all changes made during test.
 4. After all tests are done `TestCase` exits `transaction.atomic` and rolls back transaction it started during test case setup. It cleans loaded fixtures.
 
-This is all possible because database connection is shared across tests, view functions and any other place. Also `transaction.atomic` can be nested without committing or rolling back whole session - just to a savepoint. As you can see there are multiple architecture decisions, that allowed to create abstractions to seamlessly deliver database cleanup by wrapping it in transaction. Transaction is almost never explicitly committed in Django - there is very little risk of committing transaction that was meant to be rolled back at the end of tests. Fact that ORM is integral part of whole framework helps immensely to deliver such solution that work out of the box.
-
-It is ideal, best solution? Not really. This approach won't let you test any behaviors related to committing transaction. For this purpose Django provides <Source source="web" path="https://docs.djangoproject.com/en/6.0/topics/testing/tools/#django.test.TransactionTestCase" link="TransactionTestCase"/> which uses different mechanism for cleanup. You can also argue that by using `TestCase` you test different behavior than in production setup. I would personally agree, but this approach works for thousands of developers so it seems to be a pretty sane default.
+Is it the ideal, best solution? Not really. Transaction is never committed so this approach won't let you test any behaviors related to that like commit hooks or deferred constraints. For this purpose Django provides <Source source="web" path="https://docs.djangoproject.com/en/6.0/topics/testing/tools/#django.test.TransactionTestCase" link="TransactionTestCase"/> which uses different mechanism for cleanup. You can also argue that by using `TestCase` you test different behavior than in production setup. I would personally agree, but this approach works for thousands of developers so it seems to be a pretty sane default.
 
 Like many other things in programming this is a tradeoff. This time between tests speed and test setup that doesn't ideally reflect production conditions.
+
+## Like a puzzle
+
+I want you to take a moment and think how many pieces have to fall in place like puzzles in order to make it possible.
+
+* Django uses the same database connection shared across tests, view functions and any other place.
+* connection and transaction are (almost) never explicitly handled by the developer. This prevents the developer from committing a transaction that is meant to be rolled back later in tests.
+* `transaction.atomic` can be nested without committing or rolling back whole session - just to a savepoint.
+* ORM is integral part of Django so systems (like testing and database connections handling) can work together seamlessly out of the box
+
+As you can see there are multiple architecture decisions, that allowed to create abstractions to seamlessly deliver database cleanup by wrapping it in transaction. We started with test client to show that seemingly irrelevant part plays its role here.
 
 ## Summary
 
@@ -484,3 +493,15 @@ Now we have pretty good insight on how Django manages database transactions in t
 In next part we will look at what options we have with FastAPI and SQLAlchemy and do some benchmarks. We'll also show why Django's approach is not easy to recreate there. Don't worry, we are not leaving `TransactionTestCase` for good. We will go through its cleanup mechanisms in relation to other frameworks.
 
 See ya!
+
+
+## Appendix
+I want to leave you with a couple of hints how to figure out how database connection is shared.
+
+* We already saw atomic uses `django.db.connections` <Source path="django/db/transaction.py:1" source="django" sources={sources} link="here" />
+* Digging in `QuerySet` (`QuerySet` is what you get when calling `Model.objects.all()`) we stumble upon functions responsible for generating queries like <Source path="django/db/models/query.py:1893" source="django" sources={sources} link="_insert()" />
+* Look how `Query.get_compiler` gets connection, <Source path="django/db/models/sql/query.py:372" source="django" sources={sources} link="here" />
+
+See something similar? ;)
+
+There are always more questions and more digging to be done. How are those connections initialized? How to show there is only one at the same time? Always more to discover.
