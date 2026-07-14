@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg version="1.1" viewBox="0 0 711.9441399471789 1292.5816424482798" width="2135.8324198415366" height="3877.744927344839" id="svg30" sodipodi:docname="transaction-wrapping.svg" xml:space="preserve" inkscape:version="1.4.2 (ebf0e940, 2025-05-08)" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd" xmlns="http://www.w3.org/2000/svg" xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview id="namedview30" pagecolor="#505050" bordercolor="#eeeeee" borderopacity="1" inkscape:showpageshadow="0" inkscape:pageopacity="0" inkscape:pagecheckerboard="0" inkscape:deskcolor="#505050" inkscape:zoom="0.75198346" inkscape:cx="690.17476" inkscape:cy="2654.9786" inkscape:window-width="1728" inkscape:window-height="1382" inkscape:window-x="3190" inkscape:window-y="30" inkscape:window-maximized="0" inkscape:current-layer="svg30" />
+  <!-- svg-source:excalidraw -->
+  <defs id="defs1">
+    <style class="style-fonts" id="style1"></style>
+  </defs>
+  <g class="fragment">
+    <g stroke-linecap="round" transform="translate(10 10) rotate(0 345.17685272819017 113.26420764515251)" id="g23">
+      <path d="M32 0 C247.01 1.74, 462.81 1.46, 658.35 0 M658.35 0 C680.97 -0.38, 690.42 8.71, 690.35 32 M690.35 32 C689.45 85.22, 689.33 136.96, 690.35 194.53 M690.35 194.53 C691.83 217.64, 678.76 227.23, 658.35 226.53 M658.35 226.53 C499.93 226.01, 342.82 225.27, 32 226.53 M32 226.53 C9.49 227.59, -0.02 213.9, 0 194.53 M0 194.53 C0.46 156.41, -1.6 119.75, 0 32 M0 32 C-0.49 12.3, 9.82 1.1, 32 0" stroke="#ffffff" stroke-width="1.5" fill="none" stroke-dasharray="1.5 7" id="path22" />
+    </g>
+    <g transform="translate(42.984515160939736 22.85013136221005) rotate(0 97.38333129882812 17.5)" id="g24">
+      <text x="0" y="26.712" font-family="Nunito, sans-serif, Segoe UI Emoji" font-size="28px" fill="#e9ecef" text-anchor="start" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic" id="text23">Test case setup</text>
+    </g>
+    <g stroke-linecap="round"
+            transform="translate(47.1247430541498 87.21178904975477) rotate(0 308.05210967403946 59.109720152575164)">
+            <path
+                  d="M29.55 0 C248.07 -1.99, 464.5 -1.56, 586.55 0 C606.38 3.16, 613.44 11.18, 616.1 29.55 C614.09 43.5, 618.77 50.97, 616.1 88.66 C615.68 106.63, 603.69 116.29, 586.55 118.22 C454.9 113.5, 321.82 114.07, 29.55 118.22 C12.55 117.87, 0.65 108.94, 0 88.66 C-2.84 72.05, -4.09 55.41, 0 29.55 C0.34 10.33, 12.72 1.2, 29.55 0"
+                  stroke="none" stroke-width="0" fill="#2f9e44" opacity="0.3"></path>
+            <path
+                  d="M29.55 0 C229.38 -0.67, 428.21 -1.3, 586.55 0 M29.55 0 C208.63 -0.43, 388.01 -0.55, 586.55 0 M586.55 0 C607.73 1.78, 615.18 10.55, 616.1 29.55 M586.55 0 C605.15 -1.82, 615.6 7.99, 616.1 29.55 M616.1 29.55 C614.94 48.53, 616.1 63.42, 616.1 88.66 M616.1 29.55 C616.36 42.84, 615.33 56.86, 616.1 88.66 M616.1 88.66 C615.62 110, 605.41 119.31, 586.55 118.22 M616.1 88.66 C615.55 107.41, 606.97 120.4, 586.55 118.22 M586.55 118.22 C381.9 116.92, 175.56 117.01, 29.55 118.22 M586.55 118.22 C395.08 119.68, 203.84 119.48, 29.55 118.22 M29.55 118.22 C8.89 119.31, 1.27 110.18, 0 88.66 M29.55 118.22 C11.51 117.74, 2.23 107.74, 0 88.66 M0 88.66 C1.11 72.32, 1.65 52.88, 0 29.55 M0 88.66 C-0.14 71.96, 0.66 53.03, 0 29.55 M0 29.55 C0.04 9.74, 11.63 1.37, 29.55 0 M0 29.55 C1.97 9.58, 8.91 1.81, 29.55 0"
+                  stroke="#e9ecef" stroke-width="1" fill="none"></path>
+      </g>
+    <g transform="translate(202.15185883170489 121.09034043732777) rotate(0 153.02499389648438 25.231168765002167)" id="g26">
+      <text x="153.02499389648438" y="38.512856002899255" font-family="Nunito, sans-serif, Segoe UI Emoji" font-size="40.36987002400341px" fill="#e9ecef" text-anchor="middle" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic" id="text25">Start transaction</text>
+    </g>
+  </g>
+  <g class="fragment">
+    <g transform="translate(415.0125652064344 275.2593852595885) rotate(0 90.71666717529297 17.5)" id="g1">
+      <text x="0" y="26.712" font-family="Nunito, sans-serif, Segoe UI Emoji" font-size="28px" fill="#ced4da" text-anchor="start" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic" id="text1">loads fixutes</text>
+    </g>
+    <g stroke-linecap="round" id="g30">
+      <g transform="translate(355.3207912273092 242.02841529030502) rotate(0 0.5992719261676029 52.891350708089476)" id="g27">
+        <path d="M0 0 C1.64 20.44, -0.63 40.93, 1.44 105.78 M0 0 C-0.7 25.71, 0.21 51.92, 1.44 105.78" stroke="#e9ecef" stroke-width="1" fill="none" id="path26" />
+      </g>
+      <g transform="translate(355.3207912273092 242.02841529030502) rotate(0 0.5992719261676029 52.891350708089476)" id="g28">
+        <path d="M-7.66 82.5 C-4.9 86.45, -5.64 90.41, 1.44 105.78 M-7.66 82.5 C-5.76 87.76, -2.95 93.5, 1.44 105.78" stroke="#e9ecef" stroke-width="1" fill="none" id="path27" />
+      </g>
+      <g transform="translate(355.3207912273092 242.02841529030502) rotate(0 0.5992719261676029 52.891350708089476)" id="g29">
+        <path d="M9.43 82.1 C8.77 86.01, 4.6 90.04, 1.44 105.78 M9.43 82.1 C7.09 87.42, 5.66 93.26, 1.44 105.78" stroke="#e9ecef" stroke-width="1" fill="none" id="path28" />
+      </g>
+    </g>
+  </g>
+  <g class="fragment">
+
+    <g stroke-linecap="round" transform="translate(11.590434490798543 353.311116706484) rotate(0 345.17685272819017 250.04157385382712)" id="g19">
+      <path d="M32 0 C252.97 -1.23, 472.46 -2.26, 658.35 0 M658.35 0 C678.38 -0.07, 690.75 12.06, 690.35 32 M690.35 32 C692.42 180.83, 691.89 328.39, 690.35 468.08 M690.35 468.08 C689.95 489.82, 680.27 501.54, 658.35 500.08 M658.35 500.08 C447.74 497.57, 236.71 497.45, 32 500.08 M32 500.08 C9.57 499.3, 0.64 488.53, 0 468.08 M0 468.08 C-0.88 370.49, -1.08 270.7, 0 32 M0 32 C1.94 10.61, 11.69 -0.75, 32 0" stroke="#ffffff" stroke-width="1.5" fill="none" stroke-dasharray="1.5 7" id="path18" />
+    </g>
+    <g stroke-linecap="round"
+            transform="translate(47.91996029954953 427.34203677464166) rotate(0 308.05210967403946 59.109720152575164)">
+            <path
+                  d="M29.55 0 C156.32 4.86, 284.1 2.64, 586.55 0 C608.22 -3.51, 614.08 7.99, 616.1 29.55 C615.3 48.54, 616.7 61.92, 616.1 88.66 C613.88 107.08, 606.13 114.91, 586.55 118.22 C448.05 116.27, 306.2 115.47, 29.55 118.22 C11.22 114.63, 1.79 107.95, 0 88.66 C2.32 68.17, 1.86 51.48, 0 29.55 C-2.02 7.43, 7.91 2.04, 29.55 0"
+                  stroke="none" stroke-width="0" fill="#2f9e44" opacity="0.3"></path>
+            <path
+                  d="M29.55 0 C233.06 1.37, 437.77 1.95, 586.55 0 M29.55 0 C219.43 0.57, 409.07 0.14, 586.55 0 M586.55 0 C605.84 0.4, 616.69 11.31, 616.1 29.55 M586.55 0 C607.08 0.46, 614.42 9.5, 616.1 29.55 M616.1 29.55 C614.51 41.5, 616.25 54.12, 616.1 88.66 M616.1 29.55 C615.72 43.58, 615.52 55.45, 616.1 88.66 M616.1 88.66 C618.05 108.31, 607.27 117.47, 586.55 118.22 M616.1 88.66 C617.36 110.63, 604.54 116.86, 586.55 118.22 M586.55 118.22 C399.37 117.62, 212.64 117.94, 29.55 118.22 M586.55 118.22 C474.38 119.27, 363.12 119.31, 29.55 118.22 M29.55 118.22 C10.3 118.16, -0.66 109.38, 0 88.66 M29.55 118.22 C9.19 116.73, -0.75 106.69, 0 88.66 M0 88.66 C-0.53 72.31, -0.58 54.42, 0 29.55 M0 88.66 C-0.63 72.42, -0.5 56.56, 0 29.55 M0 29.55 C0.17 9.65, 10.49 1.47, 29.55 0 M0 29.55 C-0.36 8.48, 10.6 0.85, 29.55 0"
+                  stroke="#e9ecef" stroke-width="1" fill="none"></path>
+      </g>
+    <g transform="translate(201.722069973589 461.22058816221465) rotate(0 154.25 25.231168765002167)" id="g21">
+      <text x="154.25" y="38.512856002899255" font-family="Nunito, sans-serif, Segoe UI Emoji" font-size="40.36987002400341px" fill="#e9ecef" text-anchor="middle" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic" id="text20">Create savepoint</text>
+    </g>
+    <g transform="translate(52.359786602234635 369.55359981171) rotate(0 65.59166717529297 17.5)" id="g22">
+      <text x="0" y="26.712" font-family="Nunito, sans-serif, Segoe UI Emoji" font-size="28px" fill="#e9ecef" text-anchor="start" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic" id="text21">Test setup</text>
+    </g>
+  </g>
+  <g class="fragment">
+    <g stroke-linecap="round" id="g15">
+      <g transform="translate(355.8720699735886 551.0614770797922) rotate(0 0.5555407638980796 73.75808054689765)" id="g12">
+        <path d="M0 0 C1.11 51.21, 1.83 98.98, 0 147.52 M0 0 C0.99 50.33, -0.11 101.11, 0 147.52" stroke="#e9ecef" stroke-width="1" fill="none" id="path11" />
+      </g>
+      <g transform="translate(355.8720699735886 551.0614770797922) rotate(0 0.5555407638980796 73.75808054689765)" id="g13">
+        <path d="M-8.47 124 C-5.29 132.89, -1.68 138.31, 0 147.52 M-8.47 124 C-4.95 131.89, -3.16 140.29, 0 147.52" stroke="#e9ecef" stroke-width="1" fill="none" id="path12" />
+      </g>
+      <g transform="translate(355.8720699735886 551.0614770797922) rotate(0 0.5555407638980796 73.75808054689765)" id="g14">
+        <path d="M8.63 124.05 C5.97 132.87, 3.74 138.27, 0 147.52 M8.63 124.05 C6.3 132.06, 2.25 140.45, 0 147.52" stroke="#e9ecef" stroke-width="1" fill="none" id="path13" />
+      </g>
+      <g transform="translate(415.0125652064344 610.2593852595885) rotate(0 90.71666717529297 17.5)" id="g1">
+        <text x="0" y="26.712" font-family="Nunito, sans-serif, Segoe UI Emoji" font-size="28px" fill="#ced4da" text-anchor="start" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic" id="text1">test body runs</text>
+      </g>
+    </g>
+  </g>
+  <g data-desc="tollback savepoint" class="fragment">
+    <g stroke-linecap="round"
+            transform="translate(48.82905120864052 704.0776381735877) rotate(0 308.05210967403946 59.109720152575164)">
+            <path
+                  d="M29.55 0 C223.69 -0.14, 418.83 -0.98, 586.55 0 C609.59 1.92, 617.87 11.6, 616.1 29.55 C617.84 46.66, 616.64 65.49, 616.1 88.66 C615.21 105.84, 604.97 119.57, 586.55 118.22 C444.29 120.75, 302.61 121.49, 29.55 118.22 C11.68 120.36, -3.14 106.56, 0 88.66 C-1.9 62.82, -0.84 38.82, 0 29.55 C-1.57 7.85, 7.41 -3.38, 29.55 0"
+                  stroke="none" stroke-width="0" fill="#e03131" opacity="0.3"></path>
+            <path
+                  d="M29.55 0 C207.51 1.53, 384.56 0.68, 586.55 0 M29.55 0 C162.72 -1.6, 295.88 -1.4, 586.55 0 M586.55 0 C605.16 0.55, 616.21 11.13, 616.1 29.55 M586.55 0 C606.72 1.25, 616.04 11.06, 616.1 29.55 M616.1 29.55 C613.94 51.02, 615.8 78.04, 616.1 88.66 M616.1 29.55 C615.69 50.94, 615.44 71.05, 616.1 88.66 M616.1 88.66 C615.89 109.08, 605.45 117.13, 586.55 118.22 M616.1 88.66 C616.73 109.18, 604.41 117.24, 586.55 118.22 M586.55 118.22 C415.5 119.64, 245.01 119.33, 29.55 118.22 M586.55 118.22 C387.51 116.39, 188.5 116.59, 29.55 118.22 M29.55 118.22 C11.36 118.63, -0.66 108.56, 0 88.66 M29.55 118.22 C9.47 120.33, 0.1 106.98, 0 88.66 M0 88.66 C-0.32 76.08, 0.35 60.28, 0 29.55 M0 88.66 C-0.69 73.47, 0.64 57.5, 0 29.55 M0 29.55 C-1.54 10.51, 8.76 -0.7, 29.55 0 M0 29.55 C0.4 8.28, 12.07 -1.25, 29.55 0"
+                  stroke="#e9ecef" stroke-width="1" fill="none"></path>
+      </g>
+    <g transform="translate(182.9303982206593 737.9561895611607) rotate(0 173.0416717529297 25.231168765002167)" id="g17">
+      <text x="173.0416717529297" y="38.512856002899255" font-family="Nunito, sans-serif, Segoe UI Emoji" font-size="40.36987002400341px" fill="#e9ecef" text-anchor="middle" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic" id="text16">Rollback savepoint</text>
+    </g>
+    <g transform="translate(53.8202979844491 651.0605046830519) rotate(0 90.89167022705078 17.5)" id="g18">
+      <text x="0" y="26.712" font-family="Nunito, sans-serif, Segoe UI Emoji" font-size="28px" fill="#e9ecef" text-anchor="start" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic" id="text17">Test teardown</text>
+    </g>
+    <g transform="translate(242.8484286928924 880.1984762492814) rotate(0 140.8671153545156 17.5)" id="g2">
+      <text x="0" y="26.712" font-family="Nunito, sans-serif, Segoe UI Emoji" font-size="28px" fill="#ced4da" text-anchor="start" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic" id="text2">repeats for every test</text>
+    </g>
+    <path id="path18745" fill="#ced4da" inkscape:connector-curvature="0" d="m 212.00536,882.46804 c -9.10461,0 -16.48532,7.38073 -16.48532,16.48531 0,9.10458 7.38071,16.48531 16.48532,16.48531 6.11086,0 11.44054,-3.32735 14.28783,-8.26681 l -5.80366,-3.3385 c -1.69176,2.93418 -4.85391,4.91421 -8.48417,4.91421 -5.40919,0 -9.79421,-4.38503 -9.79421,-9.79421 0,-5.40918 4.38502,-9.7942 9.79421,-9.7942 2.31858,0 4.44367,0.8111 6.1196,2.15927 l -4.32858,3.07894 14.69429,4.90008 v -15.35637 l -4.7854,3.40493 c -2.98677,-3.01095 -7.12379,-4.87796 -11.69991,-4.87796 z" style="stroke-width:0.0274756;fill:#ced4da;fill-opacity:1" />
+  </g>
+  <g data-desc="rollback transaction" class="fragment">
+    <g stroke-linecap="round" id="g11">
+      <g transform="translate(356.8317595888393 934.1685736959585) rotate(0 -0.5384748286974173 58.192326731008166)" id="g8">
+        <path d="M0 0 C0.18 31.44, -1.56 61.83, -1.51 116.38 M0 0 C0.86 31.77, 0.5 64.6, -1.51 116.38" stroke="#e9ecef" stroke-width="1" fill="none" id="path7" />
+      </g>
+      <g transform="translate(356.8317595888393 934.1685736959585) rotate(0 -0.5384748286974173 58.192326731008166)" id="g9">
+        <path d="M-9.29 92.62 C-6.13 98.97, -5.37 104.35, -1.51 116.38 M-9.29 92.62 C-6.25 98.59, -4.04 105.66, -1.51 116.38" stroke="#e9ecef" stroke-width="1" fill="none" id="path8" />
+      </g>
+      <g transform="translate(356.8317595888393 934.1685736959585) rotate(0 -0.5384748286974173 58.192326731008166)" id="g10">
+        <path d="M7.8 93.19 C6.35 99.55, 2.5 104.78, -1.51 116.38 M7.8 93.19 C6.09 99.11, 3.55 106.03, -1.51 116.38" stroke="#e9ecef" stroke-width="1" fill="none" id="path9" />
+      </g>
+    </g>
+    <g stroke-linecap="round" transform="translate(10 1056.0532271579748) rotate(0 345.17685272819017 113.26420764515251)" id="g4">
+      <path d="M32 0 C208.13 2.83, 384.13 1.79, 658.35 0 M658.35 0 C680.56 -1.78, 690.61 12.15, 690.35 32 M690.35 32 C688.64 93.65, 689.17 156.85, 690.35 194.53 M690.35 194.53 C690.41 215.91, 677.9 225.35, 658.35 226.53 M658.35 226.53 C436.55 224.08, 216.48 224.26, 32 226.53 M32 226.53 C10 224.95, 0.12 215.38, 0 194.53 M0 194.53 C0.21 131.66, 1.31 72.36, 0 32 M0 32 C1.38 11.3, 9.34 1.99, 32 0" stroke="#ffffff" stroke-width="1.5" fill="none" stroke-dasharray="1.5 7" id="path3" />
+    </g>
+    <g stroke-linecap="round"
+            transform="translate(47.12474305415162 1133.2650162077296) rotate(0 308.05210967403946 59.109720152575164)">
+            <path
+                  d="M29.55 0 C244.13 -1.48, 462.57 -2.28, 586.55 0 C608.19 2.67, 613.51 9.43, 616.1 29.55 C613.09 44.26, 611.98 60.8, 616.1 88.66 C613.7 107.78, 605.26 120.92, 586.55 118.22 C424.38 120.26, 263.32 118.14, 29.55 118.22 C8.75 115.16, -2.24 108.71, 0 88.66 C1.12 68.83, 2.73 51.44, 0 29.55 C2.45 7.72, 11.88 -2.44, 29.55 0"
+                  stroke="none" stroke-width="0" fill="#e03131" opacity="0.3"></path>
+            <path
+                  d="M29.55 0 C222.91 1.14, 415.67 2.44, 586.55 0 M29.55 0 C246.07 -1.1, 462.89 -1.11, 586.55 0 M586.55 0 C606.31 0.05, 614.32 8.68, 616.1 29.55 M586.55 0 C607.48 -0.02, 613.85 8.25, 616.1 29.55 M616.1 29.55 C615.9 45.81, 616.68 64.74, 616.1 88.66 M616.1 29.55 C615.61 51.7, 616.16 75.63, 616.1 88.66 M616.1 88.66 C617.48 109.01, 604.93 120.21, 586.55 118.22 M616.1 88.66 C616.6 108.1, 607.01 119.22, 586.55 118.22 M586.55 118.22 C405.48 117.44, 223.98 117.11, 29.55 118.22 M586.55 118.22 C389.24 120.16, 191.75 120.13, 29.55 118.22 M29.55 118.22 C9.62 117.35, -0.44 109.22, 0 88.66 M29.55 118.22 C10.64 119.82, -1.97 108.28, 0 88.66 M0 88.66 C1.6 76.17, -1.23 63.02, 0 29.55 M0 88.66 C0.33 71.15, -0.93 54.66, 0 29.55 M0 29.55 C1.82 9.12, 10.43 1.19, 29.55 0 M0 29.55 C-1.33 9.27, 9.21 0.08, 29.55 0"
+                  stroke="#e9ecef" stroke-width="1" fill="none"></path>
+      </g>
+    <g transform="translate(168.55185272819108 1167.1435675953028) rotate(0 186.625 25.231168765002167)" id="g7">
+      <text x="186.625" y="38.512856002899255" font-family="Nunito, sans-serif, Segoe UI Emoji" font-size="40.36987002400341px" fill="#e9ecef" text-anchor="middle" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic" id="text6">Rollback transaction</text>
+    </g>
+    <g transform="translate(42.984515160940646 1068.9033585201844) rotate(0 122.68333435058594 17.5)" id="g5">
+      <text x="0" y="26.712" font-family="Nunito, sans-serif, Segoe UI Emoji" font-size="28px" fill="#e9ecef" text-anchor="start" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic" id="text4">Test case teardown</text>
+    </g>
+  </g>
+  <mask id="mask30" />
+</svg>

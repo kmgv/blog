@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg version="1.1" viewBox="0 0 710.5118645517923 675.5002611939101" width="2131.535593655377" height="2026.5007835817303" id="svg15" sodipodi:docname="sharding_test.svg" inkscape:version="1.4.2 (ebf0e940, 2025-05-08)" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd" xmlns="http://www.w3.org/2000/svg" xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview id="namedview15" pagecolor="#505050" bordercolor="#eeeeee" borderopacity="1" inkscape:showpageshadow="0" inkscape:pageopacity="0" inkscape:pagecheckerboard="0" inkscape:deskcolor="#505050" inkscape:zoom="0.25436993" inkscape:cx="1356.2924" inkscape:cy="961.19853" inkscape:window-width="1728" inkscape:window-height="1382" inkscape:window-x="3182" inkscape:window-y="30" inkscape:window-maximized="0" inkscape:current-layer="svg15" />
+  <!-- svg-source:excalidraw -->
+  <metadata id="metadata1">
+  </metadata>
+  <defs id="defs1">
+  </defs>
+
+  <g id="g15" >
+    <g stroke-linecap="round" transform="translate(10.158159095411975 10) rotate(0 345.17685272819017 113.26420764515251)" id="g1">
+      <path d="M32 0 C254.24 2.39, 475.93 2.73, 658.35 0 M658.35 0 C677.78 1.15, 689.94 11.49, 690.35 32 M690.35 32 C691.26 79.94, 688.74 127.49, 690.35 194.53 M690.35 194.53 C691.02 216.05, 677.91 225.62, 658.35 226.53 M658.35 226.53 C459.04 224.99, 259.72 225.19, 32 226.53 M32 226.53 C9.8 225.71, -1.77 217.35, 0 194.53 M0 194.53 C2.46 146.17, 1.36 98.97, 0 32 M0 32 C1.99 10.19, 12.05 1.26, 32 0" stroke="#ffffff" stroke-width="1.5" fill="none" stroke-dasharray="1.5 7" id="path1" />
+    </g>
+    <g transform="translate(43.14267425635262 22.85013136221005) rotate(0 65.59166717529297 17.5)" id="g2">
+      <text x="0" y="26.712" font-family="Nunito, sans-serif, Segoe UI Emoji" font-size="28px" fill="#e9ecef" text-anchor="start" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic" id="text1">Test setup</text>
+    </g>
+    <g stroke-linecap="round"
+            transform="translate(47.2829021495636 87.21178904975477) rotate(0 308.05210967403946 59.109720152575164)">
+            <path
+                  d="M29.55 0 C196.29 2.12, 365.6 3.68, 586.55 0 C609.35 -1.72, 617.86 8.72, 616.1 29.55 C617.12 42.58, 618.6 61.8, 616.1 88.66 C615.34 111.15, 603.14 115.91, 586.55 118.22 C423.2 119.6, 258.23 118.99, 29.55 118.22 C11.91 115.81, -0.02 110.79, 0 88.66 C-3.1 68.3, 1.85 40.8, 0 29.55 C-0.51 11.34, 8.78 -2.71, 29.55 0"
+                  stroke="none" stroke-width="0" fill="#2f9e44" opacity="0.3"></path>
+            <path
+                  d="M29.55 0 C199.39 -0.62, 370.58 -0.75, 586.55 0 M29.55 0 C193.35 -0.16, 356.26 -0.19, 586.55 0 M586.55 0 C606.92 0.19, 614.32 8.94, 616.1 29.55 M586.55 0 C606.68 1.9, 614.5 10.81, 616.1 29.55 M616.1 29.55 C615.72 48.06, 614.82 69.69, 616.1 88.66 M616.1 29.55 C616.5 45.96, 615.96 62.94, 616.1 88.66 M616.1 88.66 C618.1 107.89, 607.63 119.47, 586.55 118.22 M616.1 88.66 C617.72 108.81, 608.16 117.23, 586.55 118.22 M586.55 118.22 C375.05 120.81, 162.43 120.05, 29.55 118.22 M586.55 118.22 C368.15 115.78, 149.6 116.23, 29.55 118.22 M29.55 118.22 C10.16 118.68, 1.72 108.99, 0 88.66 M29.55 118.22 C7.65 116.03, -0.32 107.01, 0 88.66 M0 88.66 C-1.28 74.09, -0.62 63.22, 0 29.55 M0 88.66 C0.47 71.13, 1.18 54.08, 0 29.55 M0 29.55 C-1.27 10.27, 8.39 -1.4, 29.55 0 M0 29.55 C0.13 10.99, 11.02 1.93, 29.55 0"
+                  stroke="#e9ecef" stroke-width="1" fill="none"></path>
+      </g>
+    <g transform="translate(185.75168357653274 121.09034043732777) rotate(0 169.5833282470703 25.231168765002167)" id="g4">
+      <text x="169.5833282470703" y="38.512856002899255" font-family="Nunito, sans-serif, Segoe UI Emoji" font-size="40.36987002400341px" fill="#e9ecef" text-anchor="middle" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic" id="text3">Create new tenant</text>
+    </g>
+  </g>
+  <g id="g16" class="fragment">
+    <g stroke-linecap="round" id="g12">
+      <g transform="translate(355.3970605233444 242.02841529030457) rotate(0 -0.1957668954082692 56.75246969435375)" id="g9">
+        <path d="M0 0 C0.22 28.45, -0.92 60.82, -0.14 113.5 M0 0 C-0.58 44.25, -0.39 86.41, -0.14 113.5" stroke="#ced4da" stroke-width="1" fill="none" id="path8" />
+      </g>
+      <g transform="translate(355.3970605233444 242.02841529030457) rotate(0 -0.1957668954082692 56.75246969435375)" id="g10">
+        <path d="M-8.85 90.07 C-6.33 94.5, -5.11 102.9, -0.14 113.5 M-8.85 90.07 C-5.42 99.82, -1.84 107.53, -0.14 113.5" stroke="#ced4da" stroke-width="1" fill="none" id="path9" />
+      </g>
+      <g transform="translate(355.3970605233444 242.02841529030457) rotate(0 -0.1957668954082692 56.75246969435375)" id="g11">
+        <path d="M8.25 89.96 C6.21 94.48, 2.88 102.9, -0.14 113.5 M8.25 89.96 C5.14 99.83, 2.17 107.57, -0.14 113.5" stroke="#ced4da" stroke-width="1" fill="none" id="path10" />
+      </g>
+    </g>
+    <g transform="translate(399.58490846885616 279.4490111734922) rotate(0 90.71666717529297 17.5)" id="g13">
+      <text x="0" y="26.712" font-family="Nunito, sans-serif, Segoe UI Emoji" font-size="28px" fill="#ced4da" text-anchor="start" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic" id="text12">test body runs</text>
+    </g>
+  </g>
+
+  <g id="g17" class="fragment">
+    <g stroke-linecap="round" transform="translate(10 361.0333546790125) rotate(0 345.17685272819017 113.2642076451524)" id="g5">
+      <path d="M32 0 C255.98 -1.49, 480.14 -0.29, 658.35 0 M658.35 0 C679.94 -0.67, 690.47 11.33, 690.35 32 M690.35 32 C689.28 83.92, 687.51 133.38, 690.35 194.53 M690.35 194.53 C690.89 217.51, 680.71 225.66, 658.35 226.53 M658.35 226.53 C495.91 227.92, 333.83 229, 32 226.53 M32 226.53 C9.29 226.93, -1.59 217.85, 0 194.53 M0 194.53 C0.28 150, 0.54 103.84, 0 32 M0 32 C1.61 9.79, 12.28 1.26, 32 0" stroke="#ffffff" stroke-width="1.5" fill="none" stroke-dasharray="1.5 7" id="path4" />
+    </g>
+    <g transform="translate(42.984515160940646 373.8834860412221) rotate(0 90.89167022705078 17.5)" id="g6">
+      <text x="0" y="26.712" font-family="Nunito, sans-serif, Segoe UI Emoji" font-size="28px" fill="#e9ecef" text-anchor="start" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic" id="text5">Test teardown</text>
+    </g>
+    <g stroke-linecap="round"
+            transform="translate(47.124743054147984 438.2451437287673) rotate(0 308.05210967403946 59.10972015257505)">
+            <path
+                  d="M29.55 0 C169.22 0.95, 309.2 1.76, 586.55 0 C604.9 2.73, 619.6 9.09, 616.1 29.55 C614.99 50.85, 616.44 75.87, 616.1 88.66 C616.07 107.78, 604.68 120.28, 586.55 118.22 C458.03 121.8, 326.3 119.94, 29.55 118.22 C12.57 120.72, -1.69 107.86, 0 88.66 C1.77 69.16, 0.22 47.14, 0 29.55 C-0.78 7.71, 6.57 1.01, 29.55 0"
+                  stroke="none" stroke-width="0" fill="#343a40" opacity="0.4"></path>
+            <path
+                  d="M29.55 0 C164.44 -2.33, 299.18 -1.79, 586.55 0 M29.55 0 C201.92 1.35, 373.86 1.18, 586.55 0 M586.55 0 C606.79 1.65, 617.13 8.98, 616.1 29.55 M586.55 0 C605.31 -2.04, 617.82 9.6, 616.1 29.55 M616.1 29.55 C614.86 44.19, 614.65 60.02, 616.1 88.66 M616.1 29.55 C617.21 46.08, 617.34 61.79, 616.1 88.66 M616.1 88.66 C617.72 107.49, 607.87 119.48, 586.55 118.22 M616.1 88.66 C618.39 108.04, 606.35 120.34, 586.55 118.22 M586.55 118.22 C381.03 118.66, 177.16 118.78, 29.55 118.22 M586.55 118.22 C406.26 118.53, 226.68 118.68, 29.55 118.22 M29.55 118.22 C8.3 119.64, -1.29 107.51, 0 88.66 M29.55 118.22 C8.23 117.99, 1.01 108.04, 0 88.66 M0 88.66 C-1.16 77.66, -1.47 62.84, 0 29.55 M0 88.66 C0.49 70.19, 0.94 51.55, 0 29.55 M0 29.55 C0.03 8.59, 8.08 -1.81, 29.55 0 M0 29.55 C-2.28 9.8, 10.08 1.98, 29.55 0"
+                  stroke="#e9ecef" stroke-width="1" fill="none"></path>
+      </g>
+    <g transform="translate(263.20185425406635 472.1236951163403) rotate(0 91.9749984741211 25.231168765002167)" id="g8">
+      <text x="91.9749984741211" y="38.512856002899255" font-family="Nunito, sans-serif, Segoe UI Emoji" font-size="40.36987002400341px" fill="#e9ecef" text-anchor="middle" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic" id="text7">No cleaup</text>
+    </g>
+    <g transform="translate(213.1068615381264 630.5002611939101) rotate(0 140.8671153545156 17.5)" id="g14">
+      <text x="0" y="26.712" font-family="Nunito, sans-serif, Segoe UI Emoji" font-size="28px" fill="#ced4da" text-anchor="start" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic" id="text13">repeats for every test</text>
+    </g>
+    <path id="path18745" fill="#ced4da" inkscape:connector-curvature="0" d="m 182.1,632.31654 c -9.17947,0 -16.62088,7.44141 -16.62088,16.62088 0,9.17945 7.44141,16.62086 16.62088,16.62086 6.1611,0 11.5346,-3.35472 14.40531,-8.33479 l -5.85139,-3.36597 c -1.70565,2.95833 -4.89382,4.95463 -8.55392,4.95463 -5.45368,0 -9.87475,-4.42107 -9.87475,-9.87473 0,-5.45367 4.42107,-9.87474 9.87475,-9.87474 2.33763,0 4.4802,0.81777 6.1699,2.17702 l -4.36416,3.10426 14.81512,4.94038 V 633.8017 l -4.82476,3.43293 c -3.01131,-3.03573 -7.18235,-4.91809 -11.7961,-4.91809 z" style="stroke-width:0.0277014" />
+  </g>
+</svg>

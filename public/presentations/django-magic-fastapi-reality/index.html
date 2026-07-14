@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta
+			name="viewport"
+			content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+
+		<title>Django Magic, FastAPI Reality — Test Isolation at Scale</title>
+
+		<link rel="stylesheet" href="reveal/reset.css" />
+		<link rel="stylesheet" href="reveal/reveal.css" />
+		<link rel="stylesheet" href="reveal/theme/black.css" />
+
+		<!-- Theme used for syntax highlighted code -->
+		<link rel="stylesheet" href="reveal/plugin/highlight/monokai.css" />
+		<style>
+			@font-face { font-family: Nunito; src: url(data:font/woff2;base64,d09GMgABAAAAAAmgAA8AAAAAEogAAAlHAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGhwbhTwcZAZgP1NUQVREAIEkEQgKkyyPEAsyAAE2AiQDYAQgBYQkByAbOQ9RVJIik315wA0ZWLCrxaPWK0DoKQgthhKUpQyoz+E2IqK+Z8eY/JYMZ/kc1PNjbfb9f6KSzrEm2iBZKaRIImQyIUG6EkiW6puetvVvDcZbchsbFCOaBaMWTEAbKzHqUi7TyGv7KsL4mdfFw/8f6n0viQVkbbCA5YQnr65pLXhBlusW6u9/AOCBCShQ2giAo7PXW1RaFZpifBOyRiAQ/t3t7D9/mel7U9ILlmoBLBTxiOz+2ZnMy0+txUIboGYJBWsHrA0s1IBjB3oAdIC3qlNJAcG1mpTgmvbuW2sE8lQy7wNIgZQ0QQSyFgIZzheJaQA/bauvAvidtrEG4IwAbgno9ry+BpgAAYlMmmUsmMUNRrA69AMEFzFzrJD3oAbK/OMaTfEboakctZkTvXcbvTkI6AhyZBdolzhXiAaB/M9hlA3Z7IhTAvPTZpdPDFVNkLZKW+BDhfcibRxPkympE2vlNeCz2skHxFahASOtQos0KiZALfyFRy6drQrIGqqyc8rw9DZEkEtKaowFFvQ0aTl5kn0iiGKyISMrhQ4ogCKVgaqSIAoIZamz5MR8XJULHXo5ElZcc3MK77ONBrawHp+MMsAy07t1P5coOsv2AwHarhNEwK+3AHjNy4HuHgurZDXBNE+eAFMOj+kPvZGAvaQG4I6uDGjHImwOfIpK7M+lrwScg9ZSef2/BYgzyFUEoFcA9JV7gDFDmq3GQD2CeY/ny7JGCMAPXTEQlFNnhCqwEM8hKFc16P2hYeB1DAfN37hz0W7/zCuRYsRhpFLRKlauSg2dRi3Fgity0LJQqD+XC0475bhDDhg1Yqf3SXbYbpstQUQj9VXxSra0cQe9pDBw4M+OvLoXLhJWklkVHwZ4Hy2WE8L24TkFmgY4WfNceRyemcSaZ+lzbDcXTvrK4T7zyv4J9qox0/Lenp3wynEzVRAnJK1ntFLjzHXM1K6cnob0MzMzoNNUUOfaozvJE9PwyslJYGqqeY6ZkO6hod4e/NQke+U4ZKyfYGMSgb6sSVglGtxESI+cAjOIIIyJRQGeEDxSEXuPgawHPzaZzorVCqqNqm2HTIvh0v6RNgEuZGs6dqZFw2Qmu8Fm6ebc1dc/MUIcZ7sEpH+gUk0s74RzpffT06dWqmudHLOKPqY5puXwYbQc6hWW9YymL1t/KCaxAR5PdWGvunsRgvQXyoWBHcN9RjJ1km3uFGgxS0LsgXOTRwYdVuNXUq+d2m7iVReCnXGjgxSxQAwbblZhUmO6dVK16vjUcxo8MOv+FEAUciCuBOB3JIWpOKMdnmQIibmmkkEc0skqYab183FRN9XdOcBc0rETY478/lib/iBm0zFYNrY1GztLAymctmED3FT10ocw2wzejLp7zLR3VCKx2Rpqg7v6+rsvDe56n/BXXVHEOKfjgxu1t4DTfrpyFNHPRt1brA1mwzDYic0I27sH7ziUYpZ5u75DphlwFh9LcaSwF9f0DGcgselk44PaI56FKkN0gvLFBxBke4e+ps41HMUbF0UPjewaUe9jSQo/t1/XWFE0oAMrTco71Unba1PdFqfnzvVShtaI53/qLxPt++ScIvRgKqT+szM0/nPJuRiPNNPgT9usytq+X6izAcuEvcIc/f/S+d0nDk2keyzK0ix2V3cq1kcWimVycUnUiqXLlq4H7yZ1A6qkbbo0t8Wa3PleSeENojfHStXQwu/WaEz9lNVS/7kZK9rXLPDQIOu8Xi5H5QhCo/tROQYJjkyubyDAQhbZStUKW0iqRVhLlYF2Fq7GW4gSHGXa2e+s2e/aw1BcRbTgMQQRg5uTz8/N5fB5bpWvzrct8BgQwkPNYyz/vjYWCzV8/0uReZgmJcLXZV80t5zIwbKzGA+7xKiAXMvg8CrxvmOtMXz9/3NShd4+8dbL7d0baG4ZXojnq+LcJXFyX60FyGIRGxfxKuoragQEXQepbIGqLhkXKOO1/IqGheCTd5KDq9zZP2eBWZVHsBuj4XpbO2g97TusnBpC3gSJo5CUf9IusIYmD6tQezrV0SlNZkKpCbyUipnVeFhqAczFV4YH1SuCRVlhUo040JYhTEbSop5pr9YphXbLqjCpS7oyP04Yrr+a8sy3ePh9AgEMSPND/eoZha+OXBxN50jfssVUCUk2U/VUC0m0UFnb/s2lXWJcpU42yhANkyVzkTraKn+vimzgRKkLDdMxiaF1FRFRXgrRPAtNoECEqoIjuL5WsUOunnJX2yQ/VmZ6VrJIxv/rv/Zvvt3fsTKFoMmIaKPWCVsJslW4jions82fCM0emVveMBPe6rkQ8LsERpP2jmomyGbque92x1n38rcOEpiRTbsANLGIFqpHPBNRQqXsic0NCgtJcLJLl7GoUpKU14Bo8wBpokL+xAMFJ6xJBsjDsra9y6FldF6on07B+NbvGmj9C7rV8EcXqZPtLsEVbYApaGFRM/xbGfizOkxm+MLT0MCfFtCs6JiIR1QpeJF2y8TbhhdLfpUdKY5FJAEtYgtFaTb6c7jUx81TprYNclWQ744URf6ccuXiOSv/chszKCAblXLpUN/ICgVAhSic7JXB76SotwDxQqXVVDNJllDVbZgXIvDG2p4FzPhhXXD7bYy39OLBZvA2iR1o6lhdkJWHIhFFyxYIV+m1+Qiqo1foqRX6wlwBirjmQZ2LLmLYxca1y6C4+0/YeJmNr3bnWKc72umMw5oCHkhqPQEgcF20jzwHAuGjs28aP+XxQ98Kn2Ffflp/b/p/+Ik7p9HVSDDWyiiK+kVDSwBSw3/8L7odbxzmz0S5Q0g+lp7fCwkWeK5kUmcFzzyCmwTwjftcMyEA0ttTQjEupCzcQFyGQoJ1VP+OP7lFSXm7Zwt4CQJt2Yy9MJpbrR6X88qQqrMAvPtQBMjOtQBT9BkQ3GqeHOGAhK5s/6QN9zYQIG9KEJKbaCxnSSxfPDyoVU2rBqNYkXJNqsVppFWlXCG1YuVKlWmkAJxrlFfVitKaNNTTSoSmunHIUikm1EB+WquGiA93/jx5Z6FDKCgpRI0nZ0yhUkJV8NT6cTOLlPCi1eVq6bSph9b05smLL5E0DSwehiMlIVvWqlCsUCEaoEYUr91hjogjj6xGukpWMA+Pl46jMkxNAXeF58w6qNZrWapKsZJzoUY0eSSDZipxYsiNyn0WAA==); }
+
+			html, body {
+				height: 100%;
+				margin: 0;
+				overflow: hidden;
+			}
+
+			.code-wrapper {
+				max-width: 60%;
+			}
+
+			.reveal pre.fit-code code {
+				max-height: none;
+				overflow: visible;
+			}
+
+			.reveal p.slim-t {
+				margin-top: 0px;
+			}
+
+			.reveal p.slim-b {
+				margin-bottom: 0px;
+			}
+
+			.hljs-meta {
+				color: #a6e22e;
+			}
+
+			.reveal table.plus-table {
+				table-layout: fixed;
+				width: 70%;
+				margin-top: 50px;
+			}
+
+			.reveal table.plus-table th,
+			.reveal table.plus-table td {
+				border-bottom: none;
+				border-right: none;
+				padding: 0.3em 1.2em;
+				width: 50%;
+				vertical-align: top;
+			}
+
+			.reveal table.plus-table tr:first-child th {
+				border-bottom: 2px solid currentColor;
+			}
+
+			.reveal table.plus-table th:first-child,
+			.reveal table.plus-table td:first-child {
+				border-right: 2px solid currentColor;
+			}
+
+		</style>
+	</head>
+	<body>
+		<div class="reveal">
+			<div class="slides">
+				<section
+					data-markdown="slides.md"
+					data-separator-notes="^Notes?:">
+				</section>
+			</div>
+		</div>
+
+		<script src="reveal/reveal.js"></script>
+		<script src="reveal/plugin/notes.js"></script>
+		<script src="reveal/plugin/markdown.js"></script>
+		<script src="plugin/svg-embed.js"></script>
+		<script src="reveal/plugin/highlight.js"></script>
+		<script>
+			// More info about initialization & config:
+			// - https://revealjs.com/initialization/
+			// - https://revealjs.com/config/
+			Reveal.initialize({
+				hash: true,
+				width: 1920,
+				height: 1080,
+				margin: 0.150,
+				controls: true,
+				progress: true,
+				slideNumber: 'c/t',
+				transition: 'none',
+				embedded: true,
+
+				// Learn about plugins: https://revealjs.com/plugins/
+				plugins: [RevealMarkdown, RevealSvgEmbed, RevealHighlight, RevealNotes],
+			});
+		</script>
+	</body>
+</html>

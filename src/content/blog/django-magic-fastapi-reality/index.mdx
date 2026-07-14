@@ -1,0 +1,33 @@
+---
+title: "Django Magic, FastAPI Reality: my EuroPython 2026 talk"
+tags: ["fastapi", "django", "testing", "python", "conference", "europython"]
+authors: ["Maciek Sobczak"]
+description: "Slides from my EuroPython 2026 talk on database test isolation, embedded right here."
+slug: "django-magic-fastapi-reality"
+date: "2026-07-14"
+---
+
+This week I gave a talk at EuroPython 2026 called **Django Magic, FastAPI Reality: Test Isolation at Scale**. It's the live, slide-shaped version of the ground covered on this blog in the [test client](/blog/test-client-python-tests-1) [series](/blog/test-client-python-tests-2) [and](/blog/test-client-python-tests-3) the post on [SQLAlchemy sessions](/blog/sqlalchemy-sessions): how Django cleans up the database between tests without you noticing, why FastAPI doesn't get that for free, and what your actual options are once you decide to fix it yourself.
+
+The deck is embedded below, built with [reveal.js](https://revealjs.com/). Click inside it and use the arrow keys (or swipe) to move through the slides.
+
+<div class="not-prose my-8 aspect-video w-full overflow-hidden rounded border border-black/15 dark:border-white/20">
+  <iframe
+    src="/presentations/django-magic-fastapi-reality/index.html"
+    title="Django Magic, FastAPI Reality: Test Isolation at Scale"
+    class="h-full w-full border-0"
+    loading="lazy"
+    allowfullscreen
+  ></iframe>
+</div>
+
+If the embed is too cramped, [open the slides in their own tab](/presentations/django-magic-fastapi-reality/index.html) instead — press <kbd>F</kbd> once it's loaded for fullscreen.
+
+## What's in it
+
+- Why FastAPI's test client is "just" an HTTPX client while Django's hooks straight into the view, and why that difference matters for isolation
+- How `transaction.atomic()` chains transactions and savepoints to make Django's test rollback invisible
+- What it actually takes to get the same rollback behavior out of FastAPI and SQLAlchemy, and where it falls short of Django's
+- A rundown of isolation patterns — schema recreating, transaction wrapping, table truncating, data namespacing, and Postgres template databases — with the trade-offs and a benchmark from a real project (800 tests, 28 tables, 184 columns)
+
+If you'd rather read than click through slides, the three-part series linked above covers the same material in prose, with more code.
